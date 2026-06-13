@@ -1,0 +1,22 @@
+name: interview_helper
+description: "Тренажёр для подготовки к собеседованиям (System Analyst Junior)."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.2   # локальное хранение прогресса и streak
+  http: ^1.2.2                 # запросы к твоему серверу (на будущее)
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/data/questions.json
