@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../controllers/session_controller.dart';
 import 'result_screen.dart';
+import '../services/progress_service.dart';
 
 class SessionScreen extends StatefulWidget {
   final Topic topic;
-  const SessionScreen({super.key, required this.topic});
+  final ProgressService progress;
+  const SessionScreen(
+      {super.key, required this.topic, required this.progress});
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -30,7 +33,8 @@ class _SessionScreenState extends State<SessionScreen> {
   void _onNext() {
     final hasMore = _controller.next();
     if (!hasMore) {
-      // Вопросы кончились — уходим на результат с итогом сессии.
+      // Сессия завершена — записываем результат в прогресс.
+      widget.progress.recordSession(widget.topic.id, _controller.result);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ResultScreen(result: _controller.result),

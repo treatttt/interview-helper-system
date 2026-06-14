@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'services/question_repository.dart';
+import 'services/progress_service.dart';
 import 'screens/home_screen.dart';
 
-void main() {
-  runApp(const InterviewHelperApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final progress = ProgressService();
+  await progress.init(); // загрузить сохранённый прогресс до запуска UI
+  runApp(InterviewHelperApp(progress: progress));
 }
 
 class InterviewHelperApp extends StatelessWidget {
-  const InterviewHelperApp({super.key});
+  final ProgressService progress;
+  const InterviewHelperApp({super.key, required this.progress});
 
   @override
   Widget build(BuildContext context) {
-    // Единственная точка выбора источника вопросов.
-    // Для перехода на сервер здесь меняется JsonQuestionRepository
-    // на ApiQuestionRepository — экраны это не затронет.
     final QuestionRepository repository = JsonQuestionRepository();
 
     return MaterialApp(
       title: 'Тренажёр собеседований',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      home: HomeScreen(repository: repository),
+      home: HomeScreen(repository: repository, progress: progress),
     );
   }
 }
