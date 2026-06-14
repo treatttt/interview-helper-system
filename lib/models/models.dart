@@ -4,12 +4,14 @@ class Question {
   final String text;
   final List<String> options;
   final List<int> correctIndexes; /// Индексы правильных ответов в options
+  final String? explanation;
 
   const Question({
     required this.id,
     required this.text,
     required this.options,
     required this.correctIndexes,
+    required this.explanation,
   });
 
   bool get isMultipleChoice => correctIndexes.length > 1;
@@ -21,6 +23,7 @@ class Question {
     text: json['text'] as String,
     options: (json['options'] as List).cast<String>(),
     correctIndexes: (json['correctIndexes'] as List).cast<int>(),
+    explanation: json['explanation'] as String?,
   );
 }
 
