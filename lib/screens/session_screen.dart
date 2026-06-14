@@ -89,6 +89,19 @@ class _SessionScreenState extends State<SessionScreen> {
                 const SizedBox(height: 18),
                 ...List.generate(
                     c.current.options.length, (i) => _optionTile(c, i)),
+                if (c.answered && c.current.explanation != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(c.current.explanation!,
+                        style: const TextStyle(fontSize: 13, height: 1.5)),
+                  ),
+                ],
                 const Spacer(),
                 SizedBox(
                   width: double.infinity,
