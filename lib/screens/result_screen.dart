@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
+import '../controllers/session_controller.dart';
 
 class ResultScreen extends StatelessWidget {
-  final int score;
-  final int total;
-  const ResultScreen({super.key, required this.score, required this.total});
+  final SessionResult result;
+  const ResultScreen({super.key, required this.result});
 
   @override
   Widget build(BuildContext context) {
-    final pct = total == 0 ? 0 : (score / total * 100).round();
+    final pct = result.maxPoints == 0
+        ? 0
+        : (result.points / result.maxPoints * 100).round();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Результат')),
       body: Padding(
@@ -19,40 +21,25 @@ class ResultScreen extends StatelessWidget {
             Container(
               width: 96,
               height: 96,
-              decoration: const BoxDecoration(
-                color: AppColors.successBg,
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_outline,
-                  color: AppColors.success, size: 52),
+              child: Icon(Icons.check_circle_outline,
+                  color: Colors.green.shade600, size: 52),
             ),
             const SizedBox(height: 20),
-            Text('$score из $total',
+            Text('${result.points} из ${result.maxPoints} баллов',
                 style: const TextStyle(
                     fontSize: 24, fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
-            Text('правильных ответов · $pct%',
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 14)),
-            const SizedBox(height: 16),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.infoBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.bolt, color: AppColors.info, size: 18),
-                  const SizedBox(width: 6),
-                  Text('+${score * 10} XP',
-                      style: const TextStyle(
-                          color: AppColors.info, fontSize: 14)),
-                ],
-              ),
-            ),
+            Text('$pct%',
+                style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            const SizedBox(height: 24),
+            // Разбивка по категориям — как договорились в команде.
+            _statRow('Верно', result.correct, Colors.green.shade600),
+            _statRow('Частично', result.partial, Colors.amber.shade700),
+            _statRow('Неверно', result.wrong, Colors.red.shade600),
             const Spacer(),
             SizedBox(
               width: double.infinity,
@@ -60,13 +47,33 @@ class ResultScreen extends StatelessWidget {
                 onPressed: () =>
                     Navigator.of(context).popUntil((r) => r.isFirst),
                 style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14)),
                 child: const Text('На главный экран'),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _statRow(String label, int value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(fontSize: 15)),
+          const Spacer(),
+          Text('$value',
+              style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
