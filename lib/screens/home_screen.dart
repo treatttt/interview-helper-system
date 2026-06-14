@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/question_repository.dart';
-import '../services/progress_service.dart';
-import '../theme.dart';
 import 'session_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final ProgressService progress;
-  const HomeScreen({super.key, required this.progress});
+  final QuestionRepository repository;
+  const HomeScreen({super.key, required this.repository});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _repo = QuestionRepository();
   List<Topic> _topics = [];
   bool _loading = true;
 
@@ -25,7 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final topics = await _repo.loadTopics();
+    final topics = await widget.repository.loadTopics();
+    if (!mounted) return;
     setState(() {
       _topics = topics;
       _loading = false;
@@ -35,10 +33,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSession(Topic topic) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SessionScreen(topic: topic, progress: widget.progress),
+        builder: (_) => SessionScreen(topic: topic),
       ),
     );
-    setState(() {}); // обновить прогресс после возврата
+    setState(() {}); // обновить после возврата (прогресс подтянем позже)
   }
 
   @override
@@ -47,67 +45,23 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Тренажёр',
             style: TextStyle(fontWeight: FontWeight.w500)),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Row(
-              children: [
-                const Icon(Icons.local_fire_department,
-                    color: AppColors.warning, size: 20),
-                const SizedBox(width: 4),
-                Text('${widget.progress.streak}',
-                    style: const TextStyle(
-                        color: AppColors.warning,
-                        fontWeight: FontWeight.w500)),
-              ],
-            ),
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _goalCard(),
-                const SizedBox(height: 20),
-                const Text('System Analyst Junior',
-                    style: TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13)),
-                const SizedBox(height: 12),
-                ..._topics.map(_topicCard),
-              ],
-            ),
-    );
-  }
-
-  Widget _goalCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.infoBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(16),
         children: [
-          const Text('Твой прогресс',
-              style: TextStyle(color: AppColors.info, fontSize: 13)),
-          const SizedBox(height: 4),
-          Text('${widget.progress.xp} XP',
-              style: const TextStyle(
-                  color: AppColors.info,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500)),
+          const Text('System Analyst Junior',
+              style: TextStyle(color: Colors.grey, fontSize: 13)),
+          const SizedBox(height: 12),
+          ..._topics.map(_topicCard),
         ],
       ),
     );
   }
 
   Widget _topicCard(Topic topic) {
-    final done = widget.progress.topicDone(topic.id);
     final total = topic.questions.length;
-    final pct = total == 0 ? 0.0 : done / total;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -116,36 +70,19 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Colors.grey.shade300),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(topic.title,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500)),
-                  ),
-                  Text('$done/$total',
-                      style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12)),
-                ],
+              Flexible(
+                child: Text(topic.title,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w500)),
               ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 6,
-                  backgroundColor: AppColors.background,
-                  color: AppColors.primary,
-                ),
-              ),
+              Text('$total вопросов',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         ),

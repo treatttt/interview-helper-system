@@ -1,51 +1,39 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
-import '../services/progress_service.dart';
-import '../theme.dart';
+import '../controllers/session_controller.dart';
 import 'result_screen.dart';
 
 class SessionScreen extends StatefulWidget {
   final Topic topic;
-  final ProgressService progress;
-  const SessionScreen(
-      {super.key, required this.topic, required this.progress});
+  const SessionScreen({super.key, required this.topic});
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
 }
 
 class _SessionScreenState extends State<SessionScreen> {
-  int _index = 0;
-  int _score = 0;
-  int? _picked;
+  late final SessionController _controller;
 
-  Question get _q => widget.topic.questions[_index];
-  bool get _answered => _picked != null;
-
-  void _choose(int i) {
-    if (_answered) return;
-    setState(() {
-      _picked = i;
-      if (i == _q.correct) _score++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    // Контроллер создаётся один раз и владеет логикой сессии.
+    _controller = SessionController(widget.topic.questions);
   }
 
-  Future<void> _next() async {
-    if (_index < widget.topic.questions.length - 1) {
-      setState(() {
-        _index++;
-        _picked = null;
-      });
-    } else {
-      await widget.progress.addXp(_score * 10);
-      await widget.progress.setTopicDone(widget.topic.id, _score);
-      if (!mounted) return;
+  @override
+  void dispose() {
+    _controller.dispose(); // ChangeNotifier нужно освобождать
+    super.dispose();
+  }
+
+  void _onNext() {
+    final hasMore = _controller.next();
+    if (!hasMore) {
+      // Вопросы кончились — уходим на результат с итогом сессии.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ResultScreen(
-            score: _score,
-            total: widget.topic.questions.length,
-          ),
+          builder: (_) => ResultScreen(result: _controller.result),
         ),
       );
     }
@@ -53,80 +41,119 @@ class _SessionScreenState extends State<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final total = widget.topic.questions.length;
-    return Scaffold(
-      appBar: AppBar(title: Text('${_index + 1} / $total')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: _index / total,
-                minHeight: 6,
-                backgroundColor: AppColors.background,
-                color: AppColors.info,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.infoBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(widget.topic.title,
-                  style: const TextStyle(color: AppColors.info, fontSize: 11)),
-            ),
-            const SizedBox(height: 14),
-            Text(_q.text,
-                style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4)),
-            const SizedBox(height: 18),
-            ...List.generate(_q.options.length, (i) => _optionTile(i)),
-            const Spacer(),
-            if (_answered) _explanation(),
-            if (_answered)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _next,
-                  style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14)),
-                  child: Text(_index < total - 1 ? 'Дальше' : 'Завершить'),
+    // ListenableBuilder перерисовывает экран при каждом notifyListeners().
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final c = _controller;
+        return Scaffold(
+          appBar: AppBar(title: Text('${c.index + 1} / ${c.total}')),
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: c.index / c.total,
+                    minHeight: 6,
+                    backgroundColor: Colors.grey.shade200,
+                  ),
                 ),
-              ),
-          ],
-        ),
-      ),
+                const SizedBox(height: 20),
+                Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(widget.topic.title,
+                      style: const TextStyle(fontSize: 11)),
+                ),
+                const SizedBox(height: 8),
+                // Подсказка для вопросов с несколькими ответами.
+                if (c.current.isMultipleChoice && !c.answered)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 6),
+                    child: Text('Можно выбрать несколько вариантов',
+                        style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ),
+                const SizedBox(height: 6),
+                Text(c.current.text,
+                    style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4)),
+                const SizedBox(height: 18),
+                ...List.generate(
+                    c.current.options.length, (i) => _optionTile(c, i)),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    // До ответа кнопка «Ответить» (активна, если что-то выбрано),
+                    // после — «Дальше»/«Завершить».
+                    onPressed: c.answered
+                        ? _onNext
+                        : (c.selected.isEmpty ? null : c.submit),
+                    style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14)),
+                    child: Text(_buttonLabel(c)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _optionTile(int i) {
-    Color bg = AppColors.surface;
-    Color border = AppColors.border;
-    Color text = AppColors.textPrimary;
-    if (_answered) {
-      if (i == _q.correct) {
-        bg = AppColors.successBg;
-        border = AppColors.success;
-        text = AppColors.success;
-      } else if (i == _picked) {
-        bg = AppColors.dangerBg;
-        border = AppColors.danger;
-        text = AppColors.danger;
+  String _buttonLabel(SessionController c) {
+    if (!c.answered) return 'Ответить';
+    return c.isLast ? 'Завершить' : 'Дальше';
+  }
+
+  Widget _optionTile(SessionController c, int i) {
+    final correct = c.current.correctIndexes.contains(i);
+    final picked = c.selected.contains(i);
+
+    Color bg = Colors.white;
+    Color border = Colors.grey.shade300;
+    Color text = Colors.black87;
+
+    if (!c.answered) {
+      // До ответа подсвечиваем только выбранные.
+      if (picked) {
+        bg = Colors.blue.shade50;
+        border = Colors.blue;
+      }
+    } else {
+      // После ответа: независимая раскраска каждого варианта.
+      if (correct && picked) {
+        // верно отмечен
+        bg = Colors.green.shade50;
+        border = Colors.green;
+        text = Colors.green.shade800;
+      } else if (correct && !picked) {
+        // пропущенный правильный
+        bg = Colors.amber.shade50;
+        border = Colors.amber.shade700;
+        text = Colors.amber.shade900;
+      } else if (!correct && picked) {
+        // ошибочно отмечен
+        bg = Colors.red.shade50;
+        border = Colors.red;
+        text = Colors.red.shade800;
       }
     }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
-        onTap: () => _choose(i),
+        onTap: () => c.toggle(i),
         borderRadius: BorderRadius.circular(10),
         child: Container(
           width: double.infinity,
@@ -136,25 +163,10 @@ class _SessionScreenState extends State<SessionScreen> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: border),
           ),
-          child: Text(_q.options[i],
+          child: Text(c.current.options[i],
               style: TextStyle(color: text, fontSize: 14)),
         ),
       ),
-    );
-  }
-
-  Widget _explanation() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(_q.explanation,
-          style: const TextStyle(
-              color: AppColors.textSecondary, fontSize: 13, height: 1.5)),
     );
   }
 }
