@@ -10,7 +10,7 @@ class Question {
     required this.text,
     required this.options,
     required this.correctIndexes,
-});
+  });
 
   bool get isMultipleChoice => correctIndexes.length > 1;
 
@@ -40,7 +40,7 @@ class Topic {
     id: json['id'] as String,
     title: json['title'] as String,
     questions: (json['questions'] as List)
-      .map((e) => Question.fromJson(e as Map<String, dynamic>))
-      .toList(),
+        .map((e) => Question.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 }
