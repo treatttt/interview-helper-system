@@ -13,7 +13,7 @@ class Question {
     required this.text,
     required this.options,
     required this.correctIndexes,
-    required this.explanation,
+    this.explanation,
   });
 
   bool get isMultipleChoice => correctIndexes.length > 1;
