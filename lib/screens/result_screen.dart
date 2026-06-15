@@ -3,6 +3,7 @@ import '../controllers/session_controller.dart';
 
 class ResultScreen extends StatelessWidget {
   final SessionResult result;
+
   const ResultScreen({super.key, required this.result});
 
   @override
@@ -30,8 +31,8 @@ class ResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text('${result.points} из ${result.maxPoints} баллов',
-                style: const TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.w500)),
+                style:
+                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             Text('$pct%',
                 style: const TextStyle(color: Colors.grey, fontSize: 14)),
@@ -71,8 +72,8 @@ class ResultScreen extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 15)),
           const Spacer(),
           Text('$value',
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w500)),
+              style:
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
         ],
       ),
     );

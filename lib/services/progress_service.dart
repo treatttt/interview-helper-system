@@ -9,7 +9,7 @@ class ProgressService extends ChangeNotifier {
   static const _kXp = 'xp';
   static const _kStreak = 'streak';
   static const _kLastDay = 'last_active_day'; // дата последней активности
-  static const _kTopics = 'topic_records';    // рекорды верных по темам (JSON)
+  static const _kTopics = 'topic_records'; // рекорды верных по темам (JSON)
 
   late SharedPreferences _prefs;
 
@@ -19,6 +19,7 @@ class ProgressService extends ChangeNotifier {
   Map<String, int> _topicRecords = {};
 
   int get xp => _xp;
+
   int get streak => _streak;
 
   /// Лучший результат (число верных) по теме. Для прогресс-бара на главном.

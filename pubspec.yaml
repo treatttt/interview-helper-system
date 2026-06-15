@@ -1,4 +1,4 @@
-name: interview_helper
+name: interview_helper_system
 description: "Тренажёр для подготовки к собеседованиям (System Analyst Junior)."
 publish_to: 'none'
 version: 0.1.0+1
@@ -15,6 +15,8 @@ dependencies:
 
 dev_dependencies:
   flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true

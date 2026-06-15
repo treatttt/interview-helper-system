@@ -7,8 +7,8 @@ import '../services/progress_service.dart';
 class SessionScreen extends StatefulWidget {
   final Topic topic;
   final ProgressService progress;
-  const SessionScreen(
-      {super.key, required this.topic, required this.progress});
+
+  const SessionScreen({super.key, required this.topic, required this.progress});
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -68,7 +68,7 @@ class _SessionScreenState extends State<SessionScreen> {
                 const SizedBox(height: 20),
                 Container(
                   padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),

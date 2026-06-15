@@ -7,6 +7,7 @@ import 'session_screen.dart';
 class HomeScreen extends StatefulWidget {
   final QuestionRepository repository;
   final ProgressService progress;
+
   const HomeScreen(
       {super.key, required this.repository, required this.progress});
 
@@ -17,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Topic> _topics = [];
   bool _loading = true;
+  String? _error; // текст ошибки, если загрузка упала целиком
 
   @override
   void initState() {
@@ -25,12 +27,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final topics = await widget.repository.loadTopics();
-    if (!mounted) return;
-    setState(() {
-      _topics = topics;
-      _loading = false;
-    });
+    try {
+      final topics = await widget.repository.loadTopics();
+      if (!mounted) return;
+      setState(() {
+        _topics = topics;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Не удалось загрузить вопросы';
+        _loading = false;
+      });
+    }
   }
 
   void _openSession(Topic topic) {
@@ -62,8 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 4),
                   Text('${widget.progress.streak}',
                       style: const TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w500)),
+                          color: Colors.orange, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -72,20 +81,25 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListenableBuilder(
-        listenable: widget.progress,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _xpCard(),
-            const SizedBox(height: 20),
-            const Text('System Analyst Junior',
-                style: TextStyle(color: Colors.grey, fontSize: 13)),
-            const SizedBox(height: 12),
-            ..._topics.map(_topicCard),
-          ],
-        ),
-      ),
+          : _error != null
+              ? Center(child: Text(_error!))
+              : _topics.isEmpty
+                  ? const Center(child: Text('Вопросов пока нет'))
+                  : ListenableBuilder(
+                      listenable: widget.progress,
+                      builder: (context, _) => ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _xpCard(),
+                          const SizedBox(height: 20),
+                          const Text('System Analyst Junior',
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 13)),
+                          const SizedBox(height: 12),
+                          ..._topics.map(_topicCard),
+                        ],
+                      ),
+                    ),
     );
   }
 
@@ -139,8 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 15, fontWeight: FontWeight.w500)),
                   ),
                   Text('$done/$total',
-                      style: const TextStyle(
-                          color: Colors.grey, fontSize: 12)),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
               const SizedBox(height: 10),
