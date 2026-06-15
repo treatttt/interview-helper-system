@@ -12,23 +12,20 @@ abstract class QuestionRepository {
 class JsonQuestionRepository implements QuestionRepository {
   @override
   Future<List<Topic>> loadTopics() async {
-    // Чтение и разбор файла. Если файл не читается или JSON битый -
-    // пробрасываем ошибку наверх: без банка вопросов приложение бессмысленно,
-    // экран покажет состояние ошибки
     final raw = await rootBundle.loadString('assets/data/questions.json');
-    final decoded = json.decode(raw);
+    return parseTopics(raw);            // I/O отдельно
+  }
 
+  @visibleForTesting
+  List<Topic> parseTopics(String raw) { // чистая логика - тестируется строками
+    final decoded = json.decode(raw);
     if (decoded is! Map<String, dynamic> || decoded['topics'] is! List) {
       throw const FormatException('Ожидался объект с ключом topics');
     }
-
     final topics = <Topic>[];
     for (final rawTopic in decoded['topics'] as List) {
       final topic = _parseTopic(rawTopic);
-      // Тему без валидных вопросов не показываем вовсе
-      if (topic != null && topic.questions.isNotEmpty) {
-        topics.add(topic);
-      }
+      if (topic != null && topic.questions.isNotEmpty) topics.add(topic);
     }
     return topics;
   }
