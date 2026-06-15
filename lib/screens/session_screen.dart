@@ -37,7 +37,11 @@ class _SessionScreenState extends State<SessionScreen> {
       widget.progress.recordSession(widget.topic.id, _controller.result);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ResultScreen(result: _controller.result),
+          builder: (_) => ResultScreen(
+            result: _controller.result,
+            topic: widget.topic,
+            progress: widget.progress, // НОВОЕ
+          ),
         ),
       );
     }

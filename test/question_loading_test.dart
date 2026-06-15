@@ -15,6 +15,7 @@
 //   * JSON-ключи вопроса: id / text / options / correctIndexes; темы: id / title / questions;
 //   * HomeScreen({required repository, required progress}); ProgressService() без аргументов;
 //   * тексты на экране: 'Не удалось загрузить вопросы' и 'Вопросов пока нет'.
+//
 
 import 'dart:convert';
 

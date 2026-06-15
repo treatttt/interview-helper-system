@@ -1,6 +1,20 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 
+enum AnswerOutcome { correct, partial, wrong }
+
+class AnsweredQuestion {
+  final Question
+  question; // сам вопрос: текст, options, correctIndexes, explanation
+  final Set<int> selected; // что выбрал пользователь
+  final AnswerOutcome outcome; // вердикт — чтобы экран не пересчитывал логику
+  const AnsweredQuestion({
+    required this.question,
+    required this.selected,
+    required this.outcome,
+  });
+}
+
 /// Разбивка вопросов по категориям и итоговые баллы
 class SessionResult {
   final int correct; // верно
@@ -8,6 +22,7 @@ class SessionResult {
   final int wrong; // неверно
   final int points; // итого баллов
   final int maxPoints; // максимум баллов за сессию
+  final List<AnsweredQuestion> answers; // вся сессия для разбора
 
   const SessionResult({
     required this.correct,
@@ -15,6 +30,7 @@ class SessionResult {
     required this.wrong,
     required this.points,
     required this.maxPoints,
+    required this.answers,
   });
 }
 
@@ -36,6 +52,7 @@ class SessionController extends ChangeNotifier {
   int _wrong = 0;
   int _points = 0;
   int _maxPoints = 0;
+  final List<AnsweredQuestion> _answers = [];
 
   Question get current => _questions[_index];
 
@@ -69,18 +86,32 @@ class SessionController extends ChangeNotifier {
   void submit() {
     if (_answered || _selected.isEmpty) return;
     final correctSet = current.correctIndexes.toSet();
-    final hit = _selected.intersection(correctSet).length; // сколько верных
+    final hit = _selected
+        .intersection(correctSet)
+        .length;
 
     _points += hit;
     _maxPoints += correctSet.length;
 
+    // +1 к счётчику и запоминаем, КАКАЯ это категория
+    final AnswerOutcome outcome;
     if (_selected.length == correctSet.length && hit == correctSet.length) {
-      _correct++; // точное совпадение
+      _correct++;
+      outcome = AnswerOutcome.correct;
     } else if (hit > 0) {
-      _partial++; // частичное совпадение
+      _partial++;
+      outcome = AnswerOutcome.partial;
     } else {
-      _wrong++; // всё мимо
+      _wrong++;
+      outcome = AnswerOutcome.wrong;
     }
+
+    // сохраняем этот вопрос целиком для разбора
+    _answers.add(AnsweredQuestion(
+      question: current,
+      selected: {..._selected}, // копия, не ссылка!
+      outcome: outcome,
+    ));
 
     _answered = true;
     notifyListeners();
@@ -98,10 +129,12 @@ class SessionController extends ChangeNotifier {
   }
 
   /// Итог сессии
-  SessionResult get result => SessionResult(
-      correct: _correct,
-      partial: _partial,
-      wrong: _wrong,
-      points: _points,
-      maxPoints: _maxPoints);
+  SessionResult get result =>
+      SessionResult(
+        correct: _correct,
+        partial: _partial,
+        wrong: _wrong,
+        points: _points,
+        maxPoints: _maxPoints,
+        answers: _answers,);
 }

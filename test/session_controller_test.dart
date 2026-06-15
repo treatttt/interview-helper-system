@@ -1,84 +1,122 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/models.dart';
 
-// Хелпер: быстро собрать вопрос для теста.
-Question q({
+// Хелпер сборки вопроса — если твой конструктор Question отличается
+// (другие обязательные поля), правишь только здесь, а не в каждом тесте.
+Question _q({
+  required String id,
   required List<String> options,
   required List<int> correct,
+  String? explanation,
 }) =>
     Question(
-      id: 't',
-      text: 'test',
+      id: id,
+      text: 'Вопрос $id',
       options: options,
       correctIndexes: correct,
+      explanation: explanation,
     );
 
 void main() {
-  group('SessionController — одиночный выбор', () {
-    test('правильный ответ засчитывается как верный', () {
+  group('SessionController — история ответов', () {
+    test('submit пишет один ответ в историю', () {
       final c = SessionController([
-        q(options: ['A', 'B'], correct: [0]),
+        _q(id: 'q1', options: ['A', 'B', 'C'], correct: [0]),
       ]);
-
-      c.toggle(0); // выбрал правильный
+      c.toggle(0);
       c.submit();
 
-      expect(c.result.correct, 1);
-      expect(c.result.wrong, 0);
-      expect(c.result.partial, 0);
-      expect(c.result.points, 1);
+      expect(c.result.answers.length, 1);
+      expect(c.result.answers.first.question.id, 'q1');
+      expect(c.result.answers.first.selected, {0});
+      expect(c.result.answers.first.outcome, AnswerOutcome.correct);
     });
 
-    test('неправильный ответ засчитывается как неверный', () {
+    test('selected не обнуляется после next() (защита от ссылки вместо копии)',
+            () {
+          final c = SessionController([
+            _q(id: 'q1', options: ['A', 'B'], correct: [0]),
+            _q(id: 'q2', options: ['A', 'B'], correct: [1]),
+          ]);
+          c.toggle(0);
+          c.submit();
+          c.next(); // тут _selected.clear() — выбор первого вопроса должен уцелеть
+
+          expect(c.result.answers.first.selected, {0},
+              reason: 'если в записи лежит ссылка на _selected, тут будет пусто');
+        });
+
+    test('submit без выбора не создаёт запись', () {
       final c = SessionController([
-        q(options: ['A', 'B'], correct: [0]),
+        _q(id: 'q1', options: ['A', 'B'], correct: [0]),
       ]);
+      c.submit(); // ничего не выбрано — guard в submit
 
-      c.toggle(1); // выбрал неправильный
-      c.submit();
+      expect(c.result.answers, isEmpty);
+    });
 
-      expect(c.result.wrong, 1);
-      expect(c.result.correct, 0);
-      expect(c.result.points, 0);
+    test('в истории все отвеченные вопросы и в исходном порядке', () {
+      final c = SessionController([
+        _q(id: 'a', options: ['x', 'y'], correct: [0]),
+        _q(id: 'b', options: ['x', 'y'], correct: [1]),
+        _q(id: 'c', options: ['x', 'y'], correct: [0]),
+      ]);
+      c.toggle(0); c.submit(); c.next();
+      c.toggle(1); c.submit(); c.next();
+      c.toggle(0); c.submit();
+
+      expect(c.result.answers.length, 3);
+      expect(c.result.answers.map((a) => a.question.id).toList(),
+          ['a', 'b', 'c']);
     });
   });
 
-  group('SessionController — множественный выбор', () {
-    test('все правильные отмечены — верно, баллы за каждый', () {
+  group('SessionController — категории вердикта', () {
+    test('correct / partial / wrong определяются верно', () {
       final c = SessionController([
-        q(options: ['A', 'B', 'C', 'D'], correct: [0, 2]),
+        _q(id: 'exact', options: ['A', 'B', 'C'], correct: [0, 1]),
+        _q(id: 'part', options: ['A', 'B', 'C'], correct: [0, 1]),
+        _q(id: 'miss', options: ['A', 'B', 'C'], correct: [0]),
       ]);
 
-      c.toggle(0);
-      c.toggle(2);
-      c.submit();
+      // оба правильных -> correct
+      c.toggle(0); c.toggle(1); c.submit(); c.next();
+      // только один из двух -> partial
+      c.toggle(0); c.submit(); c.next();
+      // неверный вариант -> wrong
+      c.toggle(1); c.submit();
 
-      expect(c.result.correct, 1);
-      expect(c.result.points, 2); // балл за каждый угаданный
+      expect(c.result.answers.map((a) => a.outcome).toList(), [
+        AnswerOutcome.correct,
+        AnswerOutcome.partial,
+        AnswerOutcome.wrong,
+      ]);
     });
 
-    test('угадана часть правильных — частично', () {
+    test('все правильные плюс лишний неправильный — это partial', () {
       final c = SessionController([
-        q(options: ['A', 'B', 'C', 'D'], correct: [0, 2]),
+        _q(id: 'q', options: ['A', 'B', 'C'], correct: [0, 1]),
       ]);
-
-      c.toggle(0); // только один из двух
+      c.toggle(0); c.toggle(1); c.toggle(2); // 2 — лишний
       c.submit();
 
-      expect(c.result.partial, 1);
-      expect(c.result.correct, 0);
-      expect(c.result.points, 1); // балл за угаданный
+      expect(c.result.answers.first.outcome, AnswerOutcome.partial);
     });
 
-    test('одиночный выбор: повторный тап заменяет предыдущий', () {
+    test('счётчики result совпадают с категориями в истории', () {
       final c = SessionController([
-        q(options: ['A', 'B'], correct: [0]),
+        _q(id: 'a', options: ['x', 'y'], correct: [0]), // верно
+        _q(id: 'b', options: ['x', 'y'], correct: [1]), // неверно
       ]);
+      c.toggle(0); c.submit(); c.next();
+      c.toggle(0); c.submit();
 
-      c.toggle(0);
-      c.toggle(1); // должен заменить, а не добавить
-      expect(c.selected, {1}); // выбран только последний
+      final r = c.result;
+      expect(r.correct,
+          r.answers.where((a) => a.outcome == AnswerOutcome.correct).length);
+      expect(r.wrong,
+          r.answers.where((a) => a.outcome == AnswerOutcome.wrong).length);
     });
   });
 }
