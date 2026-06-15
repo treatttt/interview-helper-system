@@ -12,6 +12,7 @@ void main() async {
 
 class InterviewHelperApp extends StatelessWidget {
   final ProgressService progress;
+
   const InterviewHelperApp({super.key, required this.progress});
 
   @override

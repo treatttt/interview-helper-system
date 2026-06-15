@@ -38,10 +38,15 @@ class SessionController extends ChangeNotifier {
   int _maxPoints = 0;
 
   Question get current => _questions[_index];
+
   int get index => _index;
+
   int get total => _questions.length;
+
   Set<int> get selected => _selected;
+
   bool get answered => _answered;
+
   bool get isLast => _index == _questions.length - 1;
 
   // Отметить/снять варинт Множественный вопрос — переключаем (можно несколько),
@@ -98,6 +103,5 @@ class SessionController extends ChangeNotifier {
       partial: _partial,
       wrong: _wrong,
       points: _points,
-      maxPoints: _maxPoints
-  );
+      maxPoints: _maxPoints);
 }

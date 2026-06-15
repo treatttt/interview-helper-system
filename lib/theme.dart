@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 // Цветовая палитра и тема приложения.
 class AppColors {
-  static const primary = Color(0xFF534AB7);    // фиолетовый акцент
+  static const primary = Color(0xFF534AB7); // фиолетовый акцент
   static const success = Color(0xFF0F6E56);
   static const successBg = Color(0xFFE1F5EE);
   static const danger = Color(0xFFA32D2D);

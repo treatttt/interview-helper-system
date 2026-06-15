@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 
-/// Загружает банк вопросов из локального JSON-файла
-/// Сейчас читает локальный JSON, позже можно подтянуть сервер
+/// Источник банка вопросов
+/// Реализация читает локальный JSON; позже рядом появится серверная
 abstract class QuestionRepository {
   Future<List<Topic>> loadTopics();
 }
@@ -11,11 +12,68 @@ abstract class QuestionRepository {
 class JsonQuestionRepository implements QuestionRepository {
   @override
   Future<List<Topic>> loadTopics() async {
+    // Чтение и разбор файла. Если файл не читается или JSON битый -
+    // пробрасываем ошибку наверх: без банка вопросов приложение бессмысленно,
+    // экран покажет состояние ошибки
     final raw = await rootBundle.loadString('assets/data/questions.json');
-    final data = json.decode(raw) as Map<String, dynamic>;
-    final topics = (data['topics'] as List)
-        .map((e) => Topic.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final decoded = json.decode(raw);
+
+    if (decoded is! Map<String, dynamic> || decoded['topics'] is! List) {
+      throw const FormatException('Ожидался объект с ключом topics');
+    }
+
+    final topics = <Topic>[];
+    for (final rawTopic in decoded['topics'] as List) {
+      final topic = _parseTopic(rawTopic);
+      // Тему без валидных вопросов не показываем вовсе
+      if (topic != null && topic.questions.isNotEmpty) {
+        topics.add(topic);
+      }
+    }
     return topics;
+  }
+
+  /// Разбирает тему. Возвращает null, если тема структурно битая.
+  /// Невалидные вопросы внутри темы отсеиваются, валидные остаются.
+  Topic? _parseTopic(dynamic raw) {
+    try {
+      if (raw is! Map<String, dynamic>) return null;
+
+      final questions = <Question>[];
+      final rawQuestions = raw['questions'];
+      if (rawQuestions is List) {
+        for (final rawQ in rawQuestions) {
+          final q = _parseQuestion(rawQ);
+          if (q != null) questions.add(q);
+        }
+      }
+
+      return Topic(
+        id: raw['id'] as String,
+        title: raw['title'] as String,
+        questions: questions,
+      );
+    } catch (e) {
+      // Тема без id/title или с битой структурой — пропускаем целиком
+      debugPrint('Пропущена битая тема: $e');
+      return null;
+    }
+  }
+
+  /// Разбирает и проверяет вопрос. Возвращает null, если он битый или невалидный
+  Question? _parseQuestion(dynamic raw) {
+    try {
+      if (raw is! Map<String, dynamic>) return null;
+      final q = Question.fromJson(raw);
+      if (!q.isValid) {
+        debugPrint('Пропущен невалидный вопрос: ${raw['id']}');
+        return null;
+      }
+      return q;
+    } catch (e) {
+      // Битый тип поля, отсутствующий ключ и т.п.
+      debugPrint('Пропущен битый вопрос: $e');
+      return null;
+    }
   }
 }
