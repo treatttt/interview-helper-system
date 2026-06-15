@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import '../controllers/session_controller.dart';
+import '../models/models.dart'; // ради типа Topic
+import 'review_screen.dart';
+import '../services/progress_service.dart';
 
 class ResultScreen extends StatelessWidget {
   final SessionResult result;
+  final Topic topic; // нужен для «Пройти заново» из разбора
+  final ProgressService progress;
 
-  const ResultScreen({super.key, required this.result});
+  const ResultScreen({
+    super.key,
+    required this.result,
+    required this.topic,
+    required this.progress, // НОВОЕ
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +52,21 @@ class ResultScreen extends StatelessWidget {
             _statRow('Частично', result.partial, Colors.amber.shade700),
             _statRow('Неверно', result.wrong, Colors.red.shade600),
             const Spacer(),
+            // Вторичное действие: уйти в разбор всех вопросов.
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ReviewScreen(result: result, topic: topic, progress: progress),                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                child: const Text('Разбор ответов'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Основное действие.
             SizedBox(
               width: double.infinity,
               child: FilledButton(
