@@ -3,6 +3,7 @@ import '../models/models.dart';
 import '../controllers/session_controller.dart';
 import 'result_screen.dart';
 import '../services/progress_service.dart';
+import '../theme.dart';
 
 class SessionScreen extends StatefulWidget {
   final Topic topic;
@@ -72,7 +73,9 @@ class _SessionScreenState extends State<SessionScreen> {
                         child: LinearProgressIndicator(
                           value: c.index / c.total,
                           minHeight: 6,
-                          backgroundColor: Colors.grey.shade200,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -80,11 +83,17 @@ class _SessionScreenState extends State<SessionScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(widget.topic.title,
-                            style: const TextStyle(fontSize: 11)),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                       ),
                       const SizedBox(height: 8),
                       if (c.current.isMultipleChoice && !c.answered)
@@ -111,7 +120,9 @@ class _SessionScreenState extends State<SessionScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(c.current.explanation!,
@@ -154,37 +165,38 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   Widget _optionTile(SessionController c, int i) {
+    final cs = Theme.of(context).colorScheme;
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
     final correct = c.current.correctIndexes.contains(i);
     final picked = c.selected.contains(i);
 
-    Color bg = Colors.white;
-    Color border = Colors.grey.shade300;
-    Color text = Colors.black87;
+    Color bg = cs.surface;
+    Color border = cs.outlineVariant;
+    Color text = cs.onSurface;
 
     if (!c.answered) {
-      // До ответа подсвечиваем только выбранные.
+      // До ответа подсвечиваем только выбранные — акцентом темы.
       if (picked) {
-        bg = Colors.blue.shade50;
-        border = Colors.blue;
+        bg = cs.primaryContainer;
+        border = cs.primary;
+        text = cs.onPrimaryContainer;
       }
     } else {
-      // После ответа: независимая раскраска каждого варианта.
+      // После ответа: четыре состояния через семантические цвета.
       if (correct && picked) {
-        // верно отмечен
-        bg = Colors.green.shade50;
-        border = Colors.green;
-        text = Colors.green.shade800;
+        bg = s.successBg;
+        border = s.successBorder;
+        text = s.successFg;
       } else if (correct && !picked) {
-        // пропущенный правильный
-        bg = Colors.amber.shade50;
-        border = Colors.amber.shade700;
-        text = Colors.amber.shade900;
+        bg = s.warningBg;
+        border = s.warningBorder;
+        text = s.warningFg;
       } else if (!correct && picked) {
-        // ошибочно отмечен
-        bg = Colors.red.shade50;
-        border = Colors.red;
-        text = Colors.red.shade800;
+        bg = s.dangerBg;
+        border = s.dangerBorder;
+        text = s.dangerFg;
       }
+      // неверный и не выбран — остаётся нейтральным (cs.surface/outlineVariant)
     }
 
     return Padding(
