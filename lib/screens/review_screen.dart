@@ -20,7 +20,11 @@ class ReviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Разбор ответов')),
+      appBar: AppBar(
+        title: const Text('Разбор ответов'),
+        automaticallyImplyLeading:
+            false, // убираем стрелку, ведущую в старую сессию
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: result.answers.length,
@@ -30,20 +34,33 @@ class ReviewScreen extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      SessionScreen(topic: topic, progress: progress),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SessionScreen(topic: topic, progress: progress),
+                    ),
+                    (r) => r.isFirst,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                  child: const Text('Пройти заново'),
                 ),
-                (r) => r.isFirst,
               ),
-              style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
-              child: const Text('Пройти заново'),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((r) => r.isFirst),
+                  style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                  child: const Text('В меню'),
+                ),
+              ),
+            ],
           ),
         ),
       ),
