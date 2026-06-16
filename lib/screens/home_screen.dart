@@ -3,13 +3,20 @@ import '../models/models.dart';
 import '../services/question_repository.dart';
 import '../services/progress_service.dart';
 import 'session_screen.dart';
+import 'settings_screen.dart';
+import '../services/theme_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final QuestionRepository repository;
   final ProgressService progress;
+  final ThemeService themeService;
 
-  const HomeScreen(
-      {super.key, required this.repository, required this.progress});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    required this.progress,
+    required this.themeService,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -62,16 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Тренажёр',
             style: TextStyle(fontWeight: FontWeight.w500)),
         actions: [
-          // Streak в шапке. Подписан на progress: обновится сам.
+          // Сначала streak (левее), потом настройки (правее, у края).
           ListenableBuilder(
             listenable: widget.progress,
             builder: (context, _) {
-              // До первой сессии индикатора нет: огонёк появляется, когда серия зажглась.
-              if (!widget.progress.hasTrainedEver) {
+              if (!widget.progress.hasTrainedEver)
                 return const SizedBox.shrink();
-              }
               return Padding(
-                padding: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.only(right: 4),
                 child: Row(
                   children: [
                     const Icon(Icons.local_fire_department,
@@ -84,6 +89,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Настройки',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    SettingsScreen(themeService: widget.themeService),
+              ),
+            ),
           ),
         ],
       ),
