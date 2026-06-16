@@ -26,6 +26,7 @@ import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/services/theme_service.dart';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ class _FakeRepo implements QuestionRepository {
   _FakeRepo.failure()
       : _topics = const [],
         _fail = true;
+
 
   final List<Topic> _topics;
   final bool _fail;
@@ -168,7 +170,11 @@ void main() {
   group('HomeScreen — состояния загрузки', () {
     testWidgets('первый кадр — индикатор загрузки', (tester) async {
       await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.data(const []), progress: ProgressService()),
+        home: HomeScreen(
+          repository: _FakeRepo.data(const []),
+          progress: ProgressService(),
+          themeService: ThemeService(),
+        ),
       ));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       await tester.pumpAndSettle(); // дать загрузке завершиться, чтобы тест не висел
@@ -176,7 +182,11 @@ void main() {
 
     testWidgets('загрузка падает → экран ошибки, приложение не падает', (tester) async {
       await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.failure(), progress: ProgressService()),
+        home: HomeScreen(
+          repository: _FakeRepo.data(const []),
+          progress: ProgressService(),
+          themeService: ThemeService(),
+        ),
       ));
       await tester.pumpAndSettle();
       expect(find.text('Не удалось загрузить вопросы'), findsOneWidget);
@@ -185,7 +195,11 @@ void main() {
 
     testWidgets('пустой список тем → «Вопросов пока нет»', (tester) async {
       await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.data(const []), progress: ProgressService()),
+        home: HomeScreen(
+          repository: _FakeRepo.data(const []),
+          progress: ProgressService(),
+          themeService: ThemeService(),
+        ),
       ));
       await tester.pumpAndSettle();
       expect(find.text('Вопросов пока нет'), findsOneWidget);
@@ -194,7 +208,11 @@ void main() {
     testWidgets('есть темы → список отображается', (tester) async {
       final topics = [const Topic(id: 't1', title: 'Алгоритмы', questions: [])];
       await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.data(topics), progress: ProgressService()),
+        home: HomeScreen(
+          repository: _FakeRepo.data(const []),
+          progress: ProgressService(),
+          themeService: ThemeService(),
+        ),
       ));
       await tester.pumpAndSettle();
       expect(find.text('Алгоритмы'), findsOneWidget);
