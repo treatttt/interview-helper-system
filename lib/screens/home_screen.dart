@@ -87,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? _errorView()
               : _topics.isEmpty
                   ? const Center(child: Text('Вопросов пока нет'))
                   : ListenableBuilder(
@@ -198,6 +198,40 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _errorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_outlined,
+                size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text('Не удалось загрузить вопросы',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 6),
+            Text('Что-то пошло не так. Попробуй ещё раз.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  _error = null;
+                  _loading = true;
+                });
+                _load();
+              },
+              child: const Text('Попробовать снова'),
+            ),
+          ],
         ),
       ),
     );
