@@ -91,12 +91,18 @@ class _AnswerCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(q.text,
               style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          _row('Твой ответ:', _optionsText(answer.selected, q.options)),
-          const SizedBox(height: 6),
-          _row('Правильно:', _optionsText(q.correctIndexes, q.options)),
-          if (q.explanation != null) ...[
+          // Поэлементный разбор: каждый вариант со своим состоянием.
+          ...List.generate(
+            q.options.length,
+                (i) => _optionRow(
+              text: q.options[i],
+              correct: q.correctIndexes.contains(i),
+              picked: answer.selected.contains(i),
+            ),
+          ),
+          if (q.explanation != null && q.explanation!.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -114,16 +120,73 @@ class _AnswerCard extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, String value) {
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-        children: [
-          TextSpan(
-              text: '$label ',
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          TextSpan(text: value),
-        ],
+  /// Один вариант ответа с пометкой состояния по четырём категориям.
+  /// Каждое состояние несёт ИКОНКУ + ТЕКСТ, не только цвет (доступность).
+  Widget _optionRow({
+    required String text,
+    required bool correct,
+    required bool picked,
+  }) {
+    late final Color bg;
+    late final Color border;
+    late final Color fg;
+    late final IconData icon;
+    late final String? tag; // короткая подпись состояния
+
+    if (correct && picked) {
+      bg = Colors.green.shade50;
+      border = Colors.green;
+      fg = Colors.green.shade800;
+      icon = Icons.check_circle;
+      tag = 'верно';
+    } else if (correct && !picked) {
+      // Пропущенный правильный — главный обучающий момент.
+      bg = Colors.amber.shade50;
+      border = Colors.amber.shade700;
+      fg = Colors.amber.shade900;
+      icon = Icons.error_outline;
+      tag = 'пропущено';
+    } else if (!correct && picked) {
+      bg = Colors.red.shade50;
+      border = Colors.red;
+      fg = Colors.red.shade800;
+      icon = Icons.cancel;
+      tag = 'лишнее';
+    } else {
+      // Неверный и не выбран — нейтрально, без пометки.
+      bg = Colors.transparent;
+      border = Colors.grey.shade300;
+      fg = Colors.black87;
+      icon = Icons.circle_outlined;
+      tag = null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: fg),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(text, style: TextStyle(color: fg, fontSize: 14)),
+            ),
+            if (tag != null) ...[
+              const SizedBox(width: 8),
+              Text(tag,
+                  style: TextStyle(
+                      color: fg, fontSize: 12, fontWeight: FontWeight.w600)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -159,11 +222,5 @@ class _AnswerCard extends StatelessWidget {
                 fontSize: 13, fontWeight: FontWeight.w600, color: color)),
       ],
     );
-  }
-
-  String _optionsText(Iterable<int> indices, List<String> options) {
-    final list = indices.toList()..sort();
-    if (list.isEmpty) return '—';
-    return list.map((i) => options[i]).join('; ');
   }
 }
