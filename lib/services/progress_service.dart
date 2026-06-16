@@ -10,6 +10,7 @@ class ProgressService extends ChangeNotifier {
   static const _kStreak = 'streak';
   static const _kLastDay = 'last_active_day'; // дата последней активности
   static const _kTopics = 'topic_records'; // рекорды верных по темам (JSON)
+  static const _kOnboardingDone = 'onboarding_done';
 
   late SharedPreferences _prefs;
 
@@ -21,6 +22,8 @@ class ProgressService extends ChangeNotifier {
   int get xp => _xp;
 
   int get streak => _streak;
+
+  bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
 
   /// Лучший результат (число верных) по теме. Для прогресс-бара на главном.
   int topicDone(String topicId) => _topicRecords[topicId] ?? 0;
@@ -66,6 +69,10 @@ class ProgressService extends ChangeNotifier {
       _streak = 1; // пропуск (или первый раз) — серия начинается заново
     }
     _lastActiveDay = today;
+  }
+
+  Future<void> markOnboardingDone() async {
+    await _prefs.setBool(_kOnboardingDone, true);
   }
 
   /// Дата без времени, в виде строки YYYY-MM-DD — для сравнения по дням.
