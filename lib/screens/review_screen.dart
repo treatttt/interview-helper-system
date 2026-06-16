@@ -3,6 +3,7 @@ import '../controllers/session_controller.dart';
 import '../models/models.dart'; // ради типа Topic
 import 'session_screen.dart'; // ради рестарта «Пройти заново»
 import '../services/progress_service.dart';
+import '../theme.dart';
 
 /// Разбор сессии: все вопросы с пометкой верно / частично / неверно,
 /// что выбрал пользователь, правильный ответ и пояснение (если есть).
@@ -75,19 +76,21 @@ class _AnswerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
     final q = answer.question;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: cs.surface, // ← здесь cs
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: cs.outlineVariant), // ← и здесь cs
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _outcomeBadge(answer.outcome),
+          _outcomeBadge(context, answer.outcome),
           const SizedBox(height: 8),
           Text(q.text,
               style:
@@ -97,6 +100,7 @@ class _AnswerCard extends StatelessWidget {
           ...List.generate(
             q.options.length,
             (i) => _optionRow(
+              context: context,
               text: q.options[i],
               correct: q.correctIndexes.contains(i),
               picked: answer.selected.contains(i),
@@ -108,11 +112,11 @@ class _AnswerCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: s.infoBg,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(q.explanation!,
-                  style: TextStyle(fontSize: 13, color: Colors.blue.shade900)),
+                  style: TextStyle(fontSize: 13, color: s.infoFg)),
             ),
           ],
         ],
@@ -123,40 +127,40 @@ class _AnswerCard extends StatelessWidget {
   /// Один вариант ответа с пометкой состояния по четырём категориям.
   /// Каждое состояние несёт ИКОНКУ + ТЕКСТ, не только цвет (доступность).
   Widget _optionRow({
+    required BuildContext context,
     required String text,
     required bool correct,
     required bool picked,
   }) {
-    late final Color bg;
-    late final Color border;
-    late final Color fg;
+    final cs = Theme.of(context).colorScheme;
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
+
+    late final Color bg, border, fg;
     late final IconData icon;
-    late final String? tag; // короткая подпись состояния
+    late final String? tag;
 
     if (correct && picked) {
-      bg = Colors.green.shade50;
-      border = Colors.green;
-      fg = Colors.green.shade800;
+      bg = s.successBg;
+      border = s.successBorder;
+      fg = s.successFg;
       icon = Icons.check_circle;
       tag = 'верно';
     } else if (correct && !picked) {
-      // Пропущенный правильный — главный обучающий момент.
-      bg = Colors.amber.shade50;
-      border = Colors.amber.shade700;
-      fg = Colors.amber.shade900;
+      bg = s.warningBg;
+      border = s.warningBorder;
+      fg = s.warningFg;
       icon = Icons.error_outline;
       tag = 'пропущено';
     } else if (!correct && picked) {
-      bg = Colors.red.shade50;
-      border = Colors.red;
-      fg = Colors.red.shade800;
+      bg = s.dangerBg;
+      border = s.dangerBorder;
+      fg = s.dangerFg;
       icon = Icons.cancel;
       tag = 'лишнее';
     } else {
-      // Неверный и не выбран — нейтрально, без пометки.
       bg = Colors.transparent;
-      border = Colors.grey.shade300;
-      fg = Colors.black87;
+      border = cs.outlineVariant;
+      fg = cs.onSurface;
       icon = Icons.circle_outlined;
       tag = null;
     }
@@ -177,8 +181,7 @@ class _AnswerCard extends StatelessWidget {
             Icon(icon, size: 18, color: fg),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(text, style: TextStyle(color: fg, fontSize: 14)),
-            ),
+                child: Text(text, style: TextStyle(color: fg, fontSize: 14))),
             if (tag != null) ...[
               const SizedBox(width: 8),
               Text(tag,
@@ -191,23 +194,24 @@ class _AnswerCard extends StatelessWidget {
     );
   }
 
-  Widget _outcomeBadge(AnswerOutcome outcome) {
+  Widget _outcomeBadge(BuildContext context, AnswerOutcome outcome) {
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
     late final Color color;
     late final String label;
     late final IconData icon;
     switch (outcome) {
       case AnswerOutcome.correct:
-        color = Colors.green;
+        color = s.successFg;
         label = 'Верно';
         icon = Icons.check_circle;
         break;
       case AnswerOutcome.partial:
-        color = Colors.orange;
+        color = s.warningFg;
         label = 'Частично';
         icon = Icons.remove_circle;
         break;
       case AnswerOutcome.wrong:
-        color = Colors.red;
+        color = s.dangerFg;
         label = 'Неверно';
         icon = Icons.cancel;
         break;

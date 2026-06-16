@@ -3,6 +3,7 @@ import '../controllers/session_controller.dart';
 import '../models/models.dart'; // ради типа Topic
 import 'review_screen.dart';
 import '../services/progress_service.dart';
+import '../theme.dart';
 
 class ResultScreen extends StatelessWidget {
   final SessionResult result;
@@ -21,6 +22,8 @@ class ResultScreen extends StatelessWidget {
     final pct = result.maxPoints == 0
         ? 0
         : (result.points / result.maxPoints * 100).round();
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Результат')),
@@ -33,11 +36,11 @@ class ResultScreen extends StatelessWidget {
               width: 96,
               height: 96,
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: s.successBg,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.check_circle_outline,
-                  color: Colors.green.shade600, size: 52),
+                  color: s.successFg, size: 52),
             ),
             const SizedBox(height: 20),
             Text('${result.points} из ${result.maxPoints} баллов',
@@ -45,12 +48,12 @@ class ResultScreen extends StatelessWidget {
                     const TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             Text('$pct%',
-                style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
             const SizedBox(height: 24),
             // Разбивка по категориям — как договорились в команде.
-            _statRow('Верно', result.correct, Colors.green.shade600),
-            _statRow('Частично', result.partial, Colors.amber.shade700),
-            _statRow('Неверно', result.wrong, Colors.red.shade600),
+            _statRow('Верно', result.correct, s.successFg),
+            _statRow('Частично', result.partial, s.warningFg),
+            _statRow('Неверно', result.wrong, s.dangerFg),
             const Spacer(),
             // Вторичное действие: уйти в разбор всех вопросов.
             SizedBox(
