@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Topic> _topics = [];
   bool _loading = true;
   String? _error; // текст ошибки, если загрузка упала целиком
+  bool _opening = false; // защита от двойного тапа по карточке темы
 
   @override
   void initState() {
@@ -43,14 +44,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _openSession(Topic topic) {
-    Navigator.of(context).push(
+  void _openSession(Topic topic) async {
+    if (_opening) return; // переход уже стартовал — игнорируем повторный тап
+    _opening = true;
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SessionScreen(topic: topic, progress: widget.progress),
       ),
     );
-    // setState после возврата больше не нужен — ListenableBuilder
-    // сам перерисует экран, когда progress изменится.
+    _opening = false; // вернулись с сессии — снова можно открывать
   }
 
   @override
@@ -65,8 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
             listenable: widget.progress,
             builder: (context, _) {
               // До первой сессии индикатора нет: огонёк появляется, когда серия зажглась.
-              if (!widget.progress.hasTrainedEver)
+              if (!widget.progress.hasTrainedEver) {
                 return const SizedBox.shrink();
+              }
               return Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Row(
@@ -89,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : _error != null
               ? _errorView()
               : _topics.isEmpty
-                  ? const Center(child: Text('Вопросов пока нет'))
+                  ? _emptyTopicsView()
                   : ListenableBuilder(
                       listenable: widget.progress,
                       builder: (context, _) => ListView(
@@ -109,6 +112,28 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _emptyTopicsView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text('Вопросов пока нет',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 6),
+            Text('Темы появятся, когда будут добавлены вопросы.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+          ],
+        ),
+      ),
     );
   }
 

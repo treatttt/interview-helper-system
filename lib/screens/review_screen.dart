@@ -91,12 +91,12 @@ class _AnswerCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(q.text,
               style:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           // Поэлементный разбор: каждый вариант со своим состоянием.
           ...List.generate(
             q.options.length,
-                (i) => _optionRow(
+            (i) => _optionRow(
               text: q.options[i],
               correct: q.correctIndexes.contains(i),
               picked: answer.selected.contains(i),
