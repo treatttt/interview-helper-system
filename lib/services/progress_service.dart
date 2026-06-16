@@ -25,6 +25,10 @@ class ProgressService extends ChangeNotifier {
 
   bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
 
+  /// Была ли завершена хотя бы одна сессия за всё время.
+  /// Не зависит от значения streak (важно: streak может стать 0 у того, кто занимался).
+  bool get hasTrainedEver => _lastActiveDay != null;
+
   /// Лучший результат (число верных) по теме. Для прогресс-бара на главном.
   int topicDone(String topicId) => _topicRecords[topicId] ?? 0;
 

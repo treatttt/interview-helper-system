@@ -96,10 +96,34 @@ class _HomeScreenState extends State<HomeScreen> {
                               style:
                                   TextStyle(color: Colors.grey, fontSize: 13)),
                           const SizedBox(height: 12),
+                          if (!widget.progress.hasTrainedEver) ...[
+                            _firstSessionHint(),
+                            const SizedBox(height: 12),
+                          ],
                           ..._topics.map(_topicCard),
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _firstSessionHint() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.touch_app_outlined, size: 20, color: Colors.blue.shade400),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Выбери тему, чтобы начать первую сессию',
+                style: TextStyle(fontSize: 14, height: 1.3)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -145,15 +169,17 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Flexible(
+                  Expanded(
                     child: Text(topic.title,
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w500)),
                   ),
                   Text('$done/$total',
                       style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(width: 6),
+                  Icon(Icons.chevron_right,
+                      size: 20, color: Colors.grey.shade600),
                 ],
               ),
               const SizedBox(height: 10),

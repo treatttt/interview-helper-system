@@ -13,11 +13,12 @@ class JsonQuestionRepository implements QuestionRepository {
   @override
   Future<List<Topic>> loadTopics() async {
     final raw = await rootBundle.loadString('assets/data/questions.json');
-    return parseTopics(raw);            // I/O отдельно
+    return parseTopics(raw); // I/O отдельно
   }
 
   @visibleForTesting
-  List<Topic> parseTopics(String raw) { // чистая логика - тестируется строками
+  List<Topic> parseTopics(String raw) {
+    // чистая логика - тестируется строками
     final decoded = json.decode(raw);
     if (decoded is! Map<String, dynamic> || decoded['topics'] is! List) {
       throw const FormatException('Ожидался объект с ключом topics');

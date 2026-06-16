@@ -58,7 +58,9 @@ class ResultScreen extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ReviewScreen(result: result, topic: topic, progress: progress),                  ),
+                    builder: (_) => ReviewScreen(
+                        result: result, topic: topic, progress: progress),
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14)),

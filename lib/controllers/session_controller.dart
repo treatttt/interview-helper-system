@@ -5,7 +5,7 @@ enum AnswerOutcome { correct, partial, wrong }
 
 class AnsweredQuestion {
   final Question
-  question; // сам вопрос: текст, options, correctIndexes, explanation
+      question; // сам вопрос: текст, options, correctIndexes, explanation
   final Set<int> selected; // что выбрал пользователь
   final AnswerOutcome outcome; // вердикт — чтобы экран не пересчитывал логику
   const AnsweredQuestion({
@@ -86,9 +86,7 @@ class SessionController extends ChangeNotifier {
   void submit() {
     if (_answered || _selected.isEmpty) return;
     final correctSet = current.correctIndexes.toSet();
-    final hit = _selected
-        .intersection(correctSet)
-        .length;
+    final hit = _selected.intersection(correctSet).length;
 
     _points += hit;
     _maxPoints += correctSet.length;
@@ -129,12 +127,12 @@ class SessionController extends ChangeNotifier {
   }
 
   /// Итог сессии
-  SessionResult get result =>
-      SessionResult(
+  SessionResult get result => SessionResult(
         correct: _correct,
         partial: _partial,
         wrong: _wrong,
         points: _points,
         maxPoints: _maxPoints,
-        answers: _answers,);
+        answers: _answers,
+      );
 }
