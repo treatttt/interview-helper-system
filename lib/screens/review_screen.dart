@@ -35,7 +35,8 @@ class ReviewScreen extends StatelessWidget {
             child: FilledButton(
               onPressed: () => Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (_) => SessionScreen(topic: topic, progress: progress),
+                  builder: (_) =>
+                      SessionScreen(topic: topic, progress: progress),
                 ),
                 (r) => r.isFirst,
               ),
