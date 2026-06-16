@@ -63,19 +63,24 @@ class _HomeScreenState extends State<HomeScreen> {
           // Streak в шапке. Подписан на progress: обновится сам.
           ListenableBuilder(
             listenable: widget.progress,
-            builder: (context, _) => Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.local_fire_department,
-                      color: Colors.orange, size: 20),
-                  const SizedBox(width: 4),
-                  Text('${widget.progress.streak}',
-                      style: const TextStyle(
-                          color: Colors.orange, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
+            builder: (context, _) {
+              // До первой сессии индикатора нет: огонёк появляется, когда серия зажглась.
+              if (!widget.progress.hasTrainedEver)
+                return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.local_fire_department,
+                        color: Colors.orange, size: 20),
+                    const SizedBox(width: 4),
+                    Text('${widget.progress.streak}',
+                        style: const TextStyle(
+                            color: Colors.orange, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
