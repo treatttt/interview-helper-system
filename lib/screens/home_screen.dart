@@ -74,8 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ListenableBuilder(
             listenable: widget.progress,
             builder: (context, _) {
-              if (!widget.progress.hasTrainedEver)
+              if (!widget.progress.hasTrainedEver) {
                 return const SizedBox.shrink();
+              }
               return Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Row(
@@ -117,8 +118,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           _xpCard(),
                           const SizedBox(height: 20),
                           Text('System Analyst Junior',
-                              style:
-                              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  fontSize: 13)),
                           const SizedBox(height: 12),
                           if (!widget.progress.hasTrainedEver) ...[
                             _firstSessionHint(),
@@ -155,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _firstSessionHint() {
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -176,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _xpCard() {
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -224,9 +228,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 15, fontWeight: FontWeight.w500)),
                   ),
                   Text('$done/$total',
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                      style:
+                          TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
                   const SizedBox(width: 6),
-                  Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+                  Icon(Icons.chevron_right,
+                      size: 20, color: cs.onSurfaceVariant),
                 ],
               ),
               const SizedBox(height: 10),
@@ -253,7 +259,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined, size: 48, color: cs.onSurfaceVariant),
+            Icon(Icons.cloud_off_outlined,
+                size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
             const Text('Не удалось загрузить вопросы',
                 textAlign: TextAlign.center,

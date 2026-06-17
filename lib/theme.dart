@@ -8,9 +8,11 @@ const _brandSeed = Color(0xFF534AB7); // фиолетовый акцент
 //  Семантические цвета (success / warning / danger / info).
 //  В стандартном ColorScheme для них нет слотов, поэтому они живут в
 //  ThemeExtension. Экран берёт их так:
-//      final s = Theme.of(context).extension<AppSemanticColors>()!;
+//      final s = AppSemanticColors.of(context);
 //      ... color: s.successFg, border: s.successBorder, bg: s.successBg ...
-//  и автоматически получает значения под текущую тему — без проверок brightness.
+//  of() null-безопасен: если расширение не зарегистрировано — отдаёт дефолт
+//  под текущую яркость, а не падает. На happy-path значения приходят под
+//  текущую тему автоматически, без проверок brightness.
 // ─────────────────────────────────────────────────────────────────────────
 @immutable
 class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
@@ -69,6 +71,16 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     infoBorder: Color(0xFF2E5C8A),
     infoBg: Color(0xFF14283D),
   );
+
+  /// Безопасный доступ к семантическим цветам взамен `extension<...>()!`.
+  /// Happy-path: расширение всегда зарегистрировано в _baseTheme, возвращается оно.
+  /// Fallback (виджет вне темизированного MaterialApp, изолированный тест):
+  /// дефолт под текущую яркость — не падаем на null.
+  static AppSemanticColors of(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.extension<AppSemanticColors>() ??
+        (theme.brightness == Brightness.dark ? dark : light);
+  }
 
   @override
   AppSemanticColors copyWith({

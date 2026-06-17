@@ -15,33 +15,36 @@ class SettingsScreen extends StatelessWidget {
       // Слушаем сервис: отметка радио обновится сразу после выбора.
       body: ListenableBuilder(
         listenable: themeService,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text('Тема',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Как в системе'),
-              value: ThemeMode.system,
-              groupValue: themeService.mode,
-              onChanged: (m) => themeService.setMode(m!),
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Светлая'),
-              value: ThemeMode.light,
-              groupValue: themeService.mode,
-              onChanged: (m) => themeService.setMode(m!),
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Тёмная'),
-              value: ThemeMode.dark,
-              groupValue: themeService.mode,
-              onChanged: (m) => themeService.setMode(m!),
-            ),
-          ],
+        builder: (context, _) => RadioGroup<ThemeMode>(
+          // groupValue + onChanged переехали с каждой плитки на общий предок
+          // (Radio API redesign, Flutter 3.32+). Плитки несут только value.
+          groupValue: themeService.mode,
+          onChanged: (m) {
+            if (m != null) themeService.setMode(m);
+          },
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: const [
+              Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text('Тема',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              RadioListTile<ThemeMode>(
+                title: Text('Как в системе'),
+                value: ThemeMode.system,
+              ),
+              RadioListTile<ThemeMode>(
+                title: Text('Светлая'),
+                value: ThemeMode.light,
+              ),
+              RadioListTile<ThemeMode>(
+                title: Text('Тёмная'),
+                value: ThemeMode.dark,
+              ),
+            ],
+          ),
         ),
       ),
     );

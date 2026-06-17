@@ -199,15 +199,15 @@ void main() {
 
     testWidgets('есть темы → список отображается', (tester) async {
       final topics = [
-        Topic(
+        const Topic(
           id: 't1',
           title: 'Алгоритмы',
           questions: [
             Question(
               id: 'q1',
               text: 'Вопрос?',
-              options: const ['A', 'B'],
-              correctIndexes: const [0],
+              options: ['A', 'B'],
+              correctIndexes: [0],
             ),
           ],
         ),

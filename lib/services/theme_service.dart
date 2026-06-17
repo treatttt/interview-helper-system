@@ -19,6 +19,7 @@ class ThemeService extends ChangeNotifier {
       'dark' => ThemeMode.dark,
       _ => ThemeMode.system, // нет значения или 'system'
     };
+    notifyListeners(); // если init() не дожидались — MaterialApp подхватит тему
   }
 
   Future<void> setMode(ThemeMode mode) async {
