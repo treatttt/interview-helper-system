@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:interview_helper_system/models/models.dart'; // путь под твой пакет
+import 'package:interview_helper_system/models/models.dart';
 
 void main() {
   Map<String, dynamic> rawQuestion() => {
