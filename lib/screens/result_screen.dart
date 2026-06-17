@@ -22,7 +22,7 @@ class ResultScreen extends StatelessWidget {
     final pct = result.maxPoints == 0
         ? 0
         : (result.points / result.maxPoints * 100).round();
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(

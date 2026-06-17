@@ -40,7 +40,8 @@ class SessionResult {
 class SessionController extends ChangeNotifier {
   final List<Question> _questions;
 
-  SessionController(this._questions);
+  SessionController(this._questions)
+      : assert(_questions.isNotEmpty, 'Сессия требует хотя бы один вопрос');
 
   int _index = 0;
   final Set<int> _selected = {};

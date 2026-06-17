@@ -77,7 +77,7 @@ class _AnswerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
     final q = answer.question;
 
     return Container(
@@ -133,7 +133,7 @@ class _AnswerCard extends StatelessWidget {
     required bool picked,
   }) {
     final cs = Theme.of(context).colorScheme;
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
 
     late final Color bg, border, fg;
     late final IconData icon;
@@ -195,7 +195,7 @@ class _AnswerCard extends StatelessWidget {
   }
 
   Widget _outcomeBadge(BuildContext context, AnswerOutcome outcome) {
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
     late final Color color;
     late final String label;
     late final IconData icon;

@@ -166,7 +166,7 @@ class _SessionScreenState extends State<SessionScreen> {
 
   Widget _optionTile(SessionController c, int i) {
     final cs = Theme.of(context).colorScheme;
-    final s = Theme.of(context).extension<AppSemanticColors>()!;
+    final s = AppSemanticColors.of(context);
     final correct = c.current.correctIndexes.contains(i);
     final picked = c.selected.contains(i);
 

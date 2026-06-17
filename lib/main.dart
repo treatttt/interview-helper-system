@@ -4,7 +4,7 @@ import 'services/progress_service.dart';
 import 'services/theme_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
-import 'theme.dart'; // путь под то, где у тебя лежит theme.dart
+import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

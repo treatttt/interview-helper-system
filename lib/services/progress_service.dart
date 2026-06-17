@@ -8,9 +8,15 @@ import '../controllers/session_controller.dart' show SessionResult;
 class ProgressService extends ChangeNotifier {
   static const _kXp = 'xp';
   static const _kStreak = 'streak';
-  static const _kLastDay = 'last_active_day'; // дата последней активности
-  static const _kTopics = 'topic_records'; // рекорды верных по темам (JSON)
+  static const _kLastDay = 'last_active_day';
+  static const _kTopics = 'topic_records';
   static const _kOnboardingDone = 'onboarding_done';
+
+  /// Источник «сейчас». В проде — системные часы; в тестах подменяется,
+  /// чтобы детерминированно проверять границы дня. Дефолт = поведение как было.
+  final DateTime Function() _clock;
+
+  ProgressService({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   late SharedPreferences _prefs;
 
@@ -18,39 +24,53 @@ class ProgressService extends ChangeNotifier {
   int _streak = 0;
   String? _lastActiveDay;
   Map<String, int> _topicRecords = {};
+  bool _onboardingDone = false;
 
   int get xp => _xp;
 
   int get streak => _streak;
 
-  bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
+  /// Кэшируется в init(), а НЕ читается из _prefs на лету.
+  bool get onboardingDone => _onboardingDone;
 
   /// Была ли завершена хотя бы одна сессия за всё время.
-  /// Не зависит от значения streak (важно: streak может стать 0 у того, кто занимался).
   bool get hasTrainedEver => _lastActiveDay != null;
 
-  /// Лучший результат (число верных) по теме. Для прогресс-бара на главном.
   int topicDone(String topicId) => _topicRecords[topicId] ?? 0;
 
-  /// Загрузка сохранённого прогресса. Вызывать один раз при старте приложения.
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     _xp = _prefs.getInt(_kXp) ?? 0;
     _streak = _prefs.getInt(_kStreak) ?? 0;
     _lastActiveDay = _prefs.getString(_kLastDay);
+    _onboardingDone = _prefs.getBool(_kOnboardingDone) ?? false;
+    _topicRecords = _readTopicRecords();
+    notifyListeners();
+  }
+
+  /// Толерантное чтение рекордов: битый JSON или нечисловые значения не валят старт.
+  Map<String, int> _readTopicRecords() {
     final raw = _prefs.getString(_kTopics);
-    if (raw != null) {
-      _topicRecords =
-          (json.decode(raw) as Map<String, dynamic>).cast<String, int>();
+    if (raw == null) return {};
+    try {
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return {};
+      final parsed = <String, int>{};
+      decoded.forEach((k, v) {
+        if (k is String && v is int) parsed[k] = v;
+      });
+      return parsed;
+    } catch (e) {
+      debugPrint('ProgressService: повреждён $_kTopics, сброс — $e');
+      return {};
     }
   }
 
+  /// Записать итог завершённой сессии: начислить XP, обновить streak и рекорд темы.
   Future<void> recordSession(String topicId, SessionResult result) async {
     final best = _topicRecords[topicId] ?? 0;
 
-    /// Записать итог завершённой сессии: начислить XP, обновить streak и рекорд темы.
     // XP только за НОВЫЙ прогресс по теме: сколько верных сверх прежнего рекорда.
-    // Перепрохождение без улучшения результата XP не даёт — нельзя нафармить.
     if (result.correct > best) {
       final gain = result.correct - best;
       _xp += gain * 10;
@@ -64,19 +84,24 @@ class ProgressService extends ChangeNotifier {
 
   /// Streak: дни подряд с занятиями. Засчитывается любой завершённой сессией.
   void _updateStreak() {
-    final today = _dayKey(DateTime.now());
-    if (_lastActiveDay == today) return; // сегодня уже занимались — не меняем
+    final now = _clock();
+    final todayKey = _dayKey(now);
+    if (_lastActiveDay == todayKey) return; // сегодня уже занимались
 
-    final yesterday = _dayKey(DateTime.now().subtract(const Duration(days: 1)));
-    if (_lastActiveDay == yesterday) {
+    // «Вчера» через КАЛЕНДАРЬ (day - 1), а не вычитание 24ч: subtract(Duration)
+    // на DST-переходе съезжает на лишний день и ложно рвёт серию около полуночи.
+    // Конструктор DateTime нормализует переход через границу месяца/года.
+    final yesterdayKey = _dayKey(DateTime(now.year, now.month, now.day - 1));
+    if (_lastActiveDay == yesterdayKey) {
       _streak += 1; // занимались вчера — серия продолжается
     } else {
       _streak = 1; // пропуск (или первый раз) — серия начинается заново
     }
-    _lastActiveDay = today;
+    _lastActiveDay = todayKey;
   }
 
   Future<void> markOnboardingDone() async {
+    _onboardingDone = true;
     await _prefs.setBool(_kOnboardingDone, true);
   }
 
