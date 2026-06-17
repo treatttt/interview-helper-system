@@ -1,30 +1,13 @@
-// test/question_loading_test.dart
-//
-// Покрывает критерии PR:
-//   - Нормальный банк: всё работает как раньше
-//   - Битый JSON → исключение → экран ошибки
-//   - Вопрос с correctIndexes:[99] → пропущен, остальные работают
-//   - Тема, где все вопросы невалидны → не отображается
-//   - Все темы выпали → экран «Вопросов пока нет»
-//
-// ДОПУЩЕНИЯ (поправь под свой код, если расходится):
-//   * имя пакета в import — из pubspec.yaml (поле name:), скорее всего
-//     interview_helper_system;
-//   * Question(id, text, options, correctIndexes) и Topic(id, title, questions)
-//     — именованные обязательные параметры;
-//   * JSON-ключи вопроса: id / text / options / correctIndexes; темы: id / title / questions;
-//   * HomeScreen({required repository, required progress}); ProgressService() без аргументов;
-//   * тексты на экране: 'Не удалось загрузить вопросы' и 'Вопросов пока нет'.
-//
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:interview_helper_system/theme.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -35,7 +18,8 @@ Question _q({
   List<String> options = const ['A', 'B', 'C'],
   List<int> correctIndexes = const [0],
 }) =>
-    Question(id: id, text: text, options: options, correctIndexes: correctIndexes);
+    Question(
+        id: id, text: text, options: options, correctIndexes: correctIndexes);
 
 Map<String, dynamic> _questionJson({
   String id = 'q1',
@@ -52,7 +36,8 @@ Map<String, dynamic> _topicJson({
 }) =>
     {'id': id, 'title': title, 'questions': questions};
 
-String _bank(List<Map<String, dynamic>> topics) => json.encode({'topics': topics});
+String _bank(List<Map<String, dynamic>> topics) =>
+    json.encode({'topics': topics});
 
 // Подменный репозиторий для виджет-тестов: либо отдаёт темы, либо падает.
 class _FakeRepo implements QuestionRepository {
@@ -71,9 +56,9 @@ class _FakeRepo implements QuestionRepository {
   }
 }
 
-// ── 1. Правила валидности модели ─────────────────────────────────────────────
-
 void main() {
+  // ── 1. Правила валидности модели ───────────────────────────────────────────
+
   group('Question.isValid', () {
     test('одиночный валидный вопрос → валиден', () {
       expect(_q(correctIndexes: const [0]).isValid, isTrue);
@@ -96,7 +81,9 @@ void main() {
     });
 
     test('индекс правильного ответа за границами (99) → невалиден', () {
-      expect(_q(options: const ['A', 'B'], correctIndexes: const [99]).isValid, isFalse);
+      expect(
+          _q(options: const ['A', 'B'], correctIndexes: const [99]).isValid,
+          isFalse);
     });
 
     test('отрицательный индекс → невалиден', () {
@@ -122,7 +109,8 @@ void main() {
     });
 
     test('битый JSON (пропущена запятая) → FormatException', () {
-      const broken = '{ "topics": [ { "id": "t1" "title": "Тема", "questions": [] } ] }';
+      const broken =
+          '{ "topics": [ { "id": "t1" "title": "Тема", "questions": [] } ] }';
       expect(() => repo.parseTopics(broken), throwsFormatException);
     });
 
@@ -134,7 +122,8 @@ void main() {
       final raw = _bank([
         _topicJson(questions: [
           _questionJson(id: 'ok', correctIndexes: const [0]),
-          _questionJson(id: 'bad', options: const ['A', 'B'], correctIndexes: const [99]),
+          _questionJson(
+              id: 'bad', options: const ['A', 'B'], correctIndexes: const [99]),
         ]),
       ]);
       final topics = repo.parseTopics(raw);
@@ -146,7 +135,7 @@ void main() {
       final raw = _bank([
         _topicJson(id: 'empty', questions: [
           _questionJson(correctIndexes: const []), // нет правильного ответа
-          _questionJson(options: const ['A']),     // мало вариантов
+          _questionJson(options: const ['A']), // мало вариантов
         ]),
         _topicJson(id: 'good', questions: [_questionJson()]),
       ]);
@@ -166,36 +155,65 @@ void main() {
   // ── 3. Состояния экрана ────────────────────────────────────────────────────
 
   group('HomeScreen — состояния загрузки', () {
+    setUp(() async {
+      // Пустое хранилище: онбординг не пройден, прогресс нулевой, тема system.
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    // Готовит инициализированные сервисы и возвращает MaterialApp с темой
+    // (без неё extension<AppSemanticColors>() вернёт null и экран упадёт на `!`).
+    Future<Widget> homeUnder(QuestionRepository repo) async {
+      final progress = ProgressService();
+      await progress.init();
+      final themeService = ThemeService();
+      await themeService.init();
+      return MaterialApp(
+        theme: buildLightTheme(),
+        home: HomeScreen(
+          repository: repo,
+          progress: progress,
+          themeService: themeService,
+        ),
+      );
+    }
+
     testWidgets('первый кадр — индикатор загрузки', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.data(const []), progress: ProgressService()),
-      ));
+      await tester.pumpWidget(await homeUnder(_FakeRepo.data(const [])));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       await tester.pumpAndSettle(); // дать загрузке завершиться, чтобы тест не висел
     });
 
-    testWidgets('загрузка падает → экран ошибки, приложение не падает', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.failure(), progress: ProgressService()),
-      ));
-      await tester.pumpAndSettle();
-      expect(find.text('Не удалось загрузить вопросы'), findsOneWidget);
-      expect(tester.takeException(), isNull); // исключение поймано, не всплыло
-    });
+    testWidgets('загрузка падает → экран ошибки, приложение не падает',
+            (tester) async {
+          await tester.pumpWidget(await homeUnder(_FakeRepo.failure()));
+          await tester.pumpAndSettle();
+          expect(find.text('Не удалось загрузить вопросы'), findsOneWidget);
+          expect(tester.takeException(), isNull); // исключение поймано, не всплыло
+        });
 
     testWidgets('пустой список тем → «Вопросов пока нет»', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.data(const []), progress: ProgressService()),
-      ));
+      await tester.pumpWidget(await homeUnder(_FakeRepo.data(const [])));
       await tester.pumpAndSettle();
       expect(find.text('Вопросов пока нет'), findsOneWidget);
     });
 
     testWidgets('есть темы → список отображается', (tester) async {
-      final topics = [const Topic(id: 't1', title: 'Алгоритмы', questions: [])];
-      await tester.pumpWidget(MaterialApp(
-        home: HomeScreen(repository: _FakeRepo.data(topics), progress: ProgressService()),
-      ));
+      final topics = [
+        Topic(
+          id: 't1',
+          title: 'Алгоритмы',
+          questions: [
+            Question(
+              id: 'q1',
+              text: 'Вопрос?',
+              options: const ['A', 'B'],
+              correctIndexes: const [0],
+            ),
+          ],
+        ),
+      ];
+
+      await tester.pumpWidget(await homeUnder(_FakeRepo.data(topics)));
       await tester.pumpAndSettle();
       expect(find.text('Алгоритмы'), findsOneWidget);
     });

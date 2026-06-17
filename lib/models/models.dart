@@ -36,7 +36,8 @@ class Question {
         id: json['id'] as String,
         text: json['text'] as String,
         options: (json['options'] as List).cast<String>(),
-        correctIndexes: (json['correctIndexes'] as List).cast<int>(),
+        correctIndexes:
+            (json['correctIndexes'] as List).map((e) => e as int).toList(),
         explanation: json['explanation'] as String?,
       );
 }

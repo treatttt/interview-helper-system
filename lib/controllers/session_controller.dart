@@ -133,6 +133,6 @@ class SessionController extends ChangeNotifier {
         wrong: _wrong,
         points: _points,
         maxPoints: _maxPoints,
-        answers: _answers,
+        answers: List.unmodifiable(_answers), // ← было: _answers
       );
 }

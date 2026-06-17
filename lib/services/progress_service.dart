@@ -45,14 +45,15 @@ class ProgressService extends ChangeNotifier {
     }
   }
 
-  /// Записать итог завершённой сессии: начислить XP, обновить streak и рекорд темы.
   Future<void> recordSession(String topicId, SessionResult result) async {
-    // XP: 10 за каждый набранный балл.
-    _xp += result.points * 10;
-
-    // Рекорд по теме: храним лучшее число верных ответов, бар только растёт.
     final best = _topicRecords[topicId] ?? 0;
+
+    /// Записать итог завершённой сессии: начислить XP, обновить streak и рекорд темы.
+    // XP только за НОВЫЙ прогресс по теме: сколько верных сверх прежнего рекорда.
+    // Перепрохождение без улучшения результата XP не даёт — нельзя нафармить.
     if (result.correct > best) {
+      final gain = result.correct - best;
+      _xp += gain * 10;
       _topicRecords[topicId] = result.correct;
     }
 

@@ -3,13 +3,21 @@ import '../models/models.dart';
 import '../services/question_repository.dart';
 import '../services/progress_service.dart';
 import 'session_screen.dart';
+import 'settings_screen.dart';
+import '../services/theme_service.dart';
+import '../theme.dart';
 
 class HomeScreen extends StatefulWidget {
   final QuestionRepository repository;
   final ProgressService progress;
+  final ThemeService themeService;
 
-  const HomeScreen(
-      {super.key, required this.repository, required this.progress});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    required this.progress,
+    required this.themeService,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -19,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Topic> _topics = [];
   bool _loading = true;
   String? _error; // текст ошибки, если загрузка упала целиком
+  bool _opening = false; // защита от двойного тапа по карточке темы
 
   @override
   void initState() {
@@ -43,14 +52,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _openSession(Topic topic) {
-    Navigator.of(context).push(
+  void _openSession(Topic topic) async {
+    if (_opening) return; // переход уже стартовал — игнорируем повторный тап
+    _opening = true;
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SessionScreen(topic: topic, progress: widget.progress),
       ),
     );
-    // setState после возврата больше не нужен — ListenableBuilder
-    // сам перерисует экран, когда progress изменится.
+    _opening = false; // вернулись с сессии — снова можно открывать
   }
 
   @override
@@ -60,15 +70,14 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Тренажёр',
             style: TextStyle(fontWeight: FontWeight.w500)),
         actions: [
-          // Streak в шапке. Подписан на progress: обновится сам.
+          // Сначала streak (левее), потом настройки (правее, у края).
           ListenableBuilder(
             listenable: widget.progress,
             builder: (context, _) {
-              // До первой сессии индикатора нет: огонёк появляется, когда серия зажглась.
               if (!widget.progress.hasTrainedEver)
                 return const SizedBox.shrink();
               return Padding(
-                padding: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.only(right: 4),
                 child: Row(
                   children: [
                     const Icon(Icons.local_fire_department,
@@ -82,6 +91,16 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Настройки',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    SettingsScreen(themeService: widget.themeService),
+              ),
+            ),
+          ),
         ],
       ),
       body: _loading
@@ -89,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : _error != null
               ? _errorView()
               : _topics.isEmpty
-                  ? const Center(child: Text('Вопросов пока нет'))
+                  ? _emptyTopicsView()
                   : ListenableBuilder(
                       listenable: widget.progress,
                       builder: (context, _) => ListView(
@@ -97,9 +116,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           _xpCard(),
                           const SizedBox(height: 20),
-                          const Text('System Analyst Junior',
+                          Text('System Analyst Junior',
                               style:
-                                  TextStyle(color: Colors.grey, fontSize: 13)),
+                              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                           const SizedBox(height: 12),
                           if (!widget.progress.hasTrainedEver) ...[
                             _firstSessionHint(),
@@ -112,20 +131,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _emptyTopicsView() {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_outlined, size: 48, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            const Text('Вопросов пока нет',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 6),
+            Text('Темы появятся, когда будут добавлены вопросы.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _firstSessionHint() {
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: s.infoBg,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Icon(Icons.touch_app_outlined, size: 20, color: Colors.blue.shade400),
+          Icon(Icons.touch_app_outlined, size: 20, color: s.infoFg),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text('Выбери тему, чтобы начать первую сессию',
-                style: TextStyle(fontSize: 14, height: 1.3)),
+                style: TextStyle(fontSize: 14, height: 1.3, color: s.infoFg)),
           ),
         ],
       ),
@@ -133,29 +176,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _xpCard() {
+    final s = Theme.of(context).extension<AppSemanticColors>()!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: s.infoBg,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Твой прогресс',
-              style: TextStyle(color: Colors.blue, fontSize: 13)),
+          Text('Твой прогресс',
+              style: TextStyle(color: s.infoFg, fontSize: 13)),
           const SizedBox(height: 4),
           Text('${widget.progress.xp} XP',
-              style: const TextStyle(
-                  color: Colors.blue,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500)),
+              style: TextStyle(
+                  color: s.infoFg, fontSize: 22, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
   Widget _topicCard(Topic topic) {
+    final cs = Theme.of(context).colorScheme;
     final done = widget.progress.topicDone(topic.id);
     final total = topic.questions.length;
     final pct = total == 0 ? 0.0 : done / total;
@@ -168,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: cs.outlineVariant),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,10 +224,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 15, fontWeight: FontWeight.w500)),
                   ),
                   Text('$done/$total',
-                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
                   const SizedBox(width: 6),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: Colors.grey.shade600),
+                  Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
                 ],
               ),
               const SizedBox(height: 10),
@@ -193,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: LinearProgressIndicator(
                   value: pct,
                   minHeight: 6,
-                  backgroundColor: Colors.grey.shade200,
+                  backgroundColor: cs.surfaceContainerHighest,
                 ),
               ),
             ],
@@ -204,14 +246,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _errorView() {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 48, color: Colors.grey.shade400),
+            Icon(Icons.cloud_off_outlined, size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
             const Text('Не удалось загрузить вопросы',
                 textAlign: TextAlign.center,
@@ -219,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 6),
             Text('Что-то пошло не так. Попробуй ещё раз.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () {
