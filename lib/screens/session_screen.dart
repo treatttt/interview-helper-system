@@ -6,10 +6,16 @@ import '../services/progress_service.dart';
 import '../theme.dart';
 
 class SessionScreen extends StatefulWidget {
-  final Topic topic;
+  final Track track;
+  final Grade grade;
   final ProgressService progress;
 
-  const SessionScreen({super.key, required this.topic, required this.progress});
+  const SessionScreen({
+    super.key,
+    required this.track,
+    required this.grade,
+    required this.progress,
+  });
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -17,32 +23,33 @@ class SessionScreen extends StatefulWidget {
 
 class _SessionScreenState extends State<SessionScreen> {
   late final SessionController _controller;
-  bool _finishing = false; // защита от двойного тапа на «Завершить»
+  bool _finishing = false;
 
   @override
   void initState() {
     super.initState();
-    // Контроллер создаётся один раз и владеет логикой сессии.
-    _controller = SessionController(widget.topic.questions);
+    _controller = SessionController(widget.grade.questions);
   }
 
   @override
   void dispose() {
-    _controller.dispose(); // ChangeNotifier нужно освобождать
+    _controller.dispose();
     super.dispose();
   }
 
   void _onNext() {
-    if (_finishing) return; // повторный вход после старта завершения — игнор
+    if (_finishing) return;
     final hasMore = _controller.next();
     if (!hasMore) {
       _finishing = true;
-      widget.progress.recordSession(widget.topic.id, _controller.result);
+      final sessionKey = '${widget.track.id}_${widget.grade.id}';
+      widget.progress.recordSession(sessionKey, _controller.result);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ResultScreen(
             result: _controller.result,
-            topic: widget.topic,
+            track: widget.track,
+            grade: widget.grade,
             progress: widget.progress,
           ),
         ),
@@ -52,7 +59,6 @@ class _SessionScreenState extends State<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ListenableBuilder перерисовывает экран при каждом notifyListeners().
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) {
@@ -61,7 +67,6 @@ class _SessionScreenState extends State<SessionScreen> {
           appBar: AppBar(title: Text('${c.index + 1} / ${c.total}')),
           body: Column(
             children: [
-              // Прокручиваемая зона: прогресс, вопрос, варианты, пояснение.
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -88,12 +93,14 @@ class _SessionScreenState extends State<SessionScreen> {
                               .surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(widget.topic.title,
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant)),
+                        child: Text(
+                          '${widget.track.title} · ${widget.grade.title}',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       if (c.current.isMultipleChoice && !c.answered)
@@ -134,7 +141,6 @@ class _SessionScreenState extends State<SessionScreen> {
                   ),
                 ),
               ),
-              // Закреплённая кнопка: не уезжает со скроллом, всегда под рукой.
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: SafeArea(
@@ -175,14 +181,12 @@ class _SessionScreenState extends State<SessionScreen> {
     Color text = cs.onSurface;
 
     if (!c.answered) {
-      // До ответа подсвечиваем только выбранные — акцентом темы.
       if (picked) {
         bg = cs.primaryContainer;
         border = cs.primary;
         text = cs.onPrimaryContainer;
       }
     } else {
-      // После ответа: четыре состояния через семантические цвета.
       if (correct && picked) {
         bg = s.successBg;
         border = s.successBorder;
@@ -196,7 +200,6 @@ class _SessionScreenState extends State<SessionScreen> {
         border = s.dangerBorder;
         text = s.dangerFg;
       }
-      // неверный и не выбран — остаётся нейтральным (cs.surface/outlineVariant)
     }
 
     return Padding(

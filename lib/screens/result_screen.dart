@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import '../controllers/session_controller.dart';
-import '../models/models.dart'; // ради типа Topic
+import '../models/models.dart';
 import 'review_screen.dart';
 import '../services/progress_service.dart';
 import '../theme.dart';
 
 class ResultScreen extends StatelessWidget {
   final SessionResult result;
-  final Topic topic; // нужен для «Пройти заново» из разбора
+  final Track track;
+  final Grade grade;
   final ProgressService progress;
 
   const ResultScreen({
     super.key,
     required this.result,
-    required this.topic,
-    required this.progress, // НОВОЕ
+    required this.track,
+    required this.grade,
+    required this.progress,
   });
 
   @override
@@ -50,19 +52,21 @@ class ResultScreen extends StatelessWidget {
             Text('$pct%',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
             const SizedBox(height: 24),
-            // Разбивка по категориям — как договорились в команде.
             _statRow('Верно', result.correct, s.successFg),
             _statRow('Частично', result.partial, s.warningFg),
             _statRow('Неверно', result.wrong, s.dangerFg),
             const Spacer(),
-            // Вторичное действие: уйти в разбор всех вопросов.
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => ReviewScreen(
-                        result: result, topic: topic, progress: progress),
+                      result: result,
+                      track: track,
+                      grade: grade,
+                      progress: progress,
+                    ),
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -71,7 +75,6 @@ class ResultScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            // Основное действие.
             SizedBox(
               width: double.infinity,
               child: FilledButton(

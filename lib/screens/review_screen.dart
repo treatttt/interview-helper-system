@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import '../controllers/session_controller.dart';
-import '../models/models.dart'; // ради типа Topic
-import 'session_screen.dart'; // ради рестарта «Пройти заново»
+import '../models/models.dart';
+import 'session_screen.dart';
 import '../services/progress_service.dart';
 import '../theme.dart';
 
-/// Разбор сессии: все вопросы с пометкой верно / частично / неверно,
-/// что выбрал пользователь, правильный ответ и пояснение (если есть).
 class ReviewScreen extends StatelessWidget {
   final SessionResult result;
-  final Topic topic;
-  final ProgressService progress; // НОВОЕ
+  final Track track;
+  final Grade grade;
+  final ProgressService progress;
+
   const ReviewScreen({
     super.key,
     required this.result,
-    required this.topic,
-    required this.progress, // НОВОЕ
+    required this.track,
+    required this.grade,
+    required this.progress,
   });
 
   @override
@@ -23,8 +24,7 @@ class ReviewScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Разбор ответов'),
-        automaticallyImplyLeading:
-            false, // убираем стрелку, ведущую в старую сессию
+        automaticallyImplyLeading: false,
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
@@ -41,8 +41,11 @@ class ReviewScreen extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          SessionScreen(topic: topic, progress: progress),
+                      builder: (_) => SessionScreen(
+                        track: track,
+                        grade: grade,
+                        progress: progress,
+                      ),
                     ),
                     (r) => r.isFirst,
                   ),
@@ -83,9 +86,9 @@ class _AnswerCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cs.surface, // ← здесь cs
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant), // ← и здесь cs
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,7 +99,6 @@ class _AnswerCard extends StatelessWidget {
               style:
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          // Поэлементный разбор: каждый вариант со своим состоянием.
           ...List.generate(
             q.options.length,
             (i) => _optionRow(
@@ -124,8 +126,6 @@ class _AnswerCard extends StatelessWidget {
     );
   }
 
-  /// Один вариант ответа с пометкой состояния по четырём категориям.
-  /// Каждое состояние несёт ИКОНКУ + ТЕКСТ, не только цвет (доступность).
   Widget _optionRow({
     required BuildContext context,
     required String text,

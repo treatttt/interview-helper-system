@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/question_repository.dart';
 import '../services/progress_service.dart';
-import 'session_screen.dart';
-import 'settings_screen.dart';
 import '../services/theme_service.dart';
 import '../theme.dart';
+import 'grades_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final QuestionRepository repository;
@@ -24,10 +24,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<Topic> _topics = [];
+  List<Track> _tracks = [];
   bool _loading = true;
-  String? _error; // текст ошибки, если загрузка упала целиком
-  bool _opening = false; // защита от двойного тапа по карточке темы
+  String? _error;
 
   @override
   void initState() {
@@ -37,10 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load() async {
     try {
-      final topics = await widget.repository.loadTopics();
+      final tracks = await widget.repository.loadTracks();
       if (!mounted) return;
       setState(() {
-        _topics = topics;
+        _tracks = tracks.toList()..sort((a, b) => a.order.compareTo(b.order));
         _loading = false;
       });
     } catch (e) {
@@ -52,17 +51,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _openSession(Topic topic) async {
-    if (_opening) return; // переход уже стартовал — игнорируем повторный тап
-    _opening = true;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SessionScreen(topic: topic, progress: widget.progress),
-      ),
-    );
-    _opening = false; // вернулись с сессии — снова можно открывать
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,13 +58,10 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Тренажёр',
             style: TextStyle(fontWeight: FontWeight.w500)),
         actions: [
-          // Сначала streak (левее), потом настройки (правее, у края).
           ListenableBuilder(
             listenable: widget.progress,
             builder: (context, _) {
-              if (!widget.progress.hasTrainedEver) {
-                return const SizedBox.shrink();
-              }
+              if (!widget.progress.hasTrainedEver) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Row(
@@ -86,7 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 4),
                     Text('${widget.progress.streak}',
                         style: const TextStyle(
-                            color: Colors.orange, fontWeight: FontWeight.w500)),
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w500)),
                   ],
                 ),
               );
@@ -108,8 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _errorView()
-              : _topics.isEmpty
-                  ? _emptyTopicsView()
+              : _tracks.isEmpty
+                  ? _emptyView()
                   : ListenableBuilder(
                       listenable: widget.progress,
                       builder: (context, _) => ListView(
@@ -117,65 +103,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           _xpCard(),
                           const SizedBox(height: 20),
-                          Text('System Analyst Junior',
-                              style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontSize: 13)),
-                          const SizedBox(height: 12),
-                          if (!widget.progress.hasTrainedEver) ...[
-                            _firstSessionHint(),
-                            const SizedBox(height: 12),
-                          ],
-                          ..._topics.map(_topicCard),
+                          ..._tracks.map(_trackCard),
                         ],
                       ),
                     ),
-    );
-  }
-
-  Widget _emptyTopicsView() {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_outlined, size: 48, color: cs.onSurfaceVariant),
-            const SizedBox(height: 16),
-            const Text('Вопросов пока нет',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 6),
-            Text('Темы появятся, когда будут добавлены вопросы.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _firstSessionHint() {
-    final s = AppSemanticColors.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: s.infoBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.touch_app_outlined, size: 20, color: s.infoFg),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('Выбери тему, чтобы начать первую сессию',
-                style: TextStyle(fontSize: 14, height: 1.3, color: s.infoFg)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -195,57 +126,98 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 4),
           Text('${widget.progress.xp} XP',
               style: TextStyle(
-                  color: s.infoFg, fontSize: 22, fontWeight: FontWeight.w500)),
+                  color: s.infoFg,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
-  Widget _topicCard(Topic topic) {
+  Widget _trackCard(Track track) {
     final cs = Theme.of(context).colorScheme;
-    final done = widget.progress.topicDone(topic.id);
-    final total = topic.questions.length;
-    final pct = total == 0 ? 0.0 : done / total;
+    final totalQuestions = track.grades
+        .fold<int>(0, (sum, g) => sum + g.questions.length);
+    final gradeCounts = track.grades
+        .where((g) => g.questions.isNotEmpty)
+        .length;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
-        onTap: () => _openSession(topic),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GradesScreen(
+              track: track,
+              progress: widget.progress,
+            ),
+          ),
+        ),
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: cs.outlineVariant),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(topic.title,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500)),
-                  ),
-                  Text('$done/$total',
-                      style:
-                          TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                  const SizedBox(width: 6),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: cs.onSurfaceVariant),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: pct,
-                  minHeight: 6,
-                  backgroundColor: cs.surfaceContainerHighest,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    if (track.description != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        track.description!,
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      totalQuestions == 0
+                          ? 'Нет вопросов'
+                          : '$totalQuestions вопр. · $gradeCounts из ${track.grades.length} грейдов заполнены',
+                      style: TextStyle(
+                          fontSize: 12, color: cs.onSurfaceVariant),
+                    ),
+                  ],
                 ),
               ),
+              Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyView() {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_outlined, size: 48, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            const Text('Вопросов пока нет',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 6),
+            Text('Направления появятся, когда будут добавлены вопросы.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+          ],
         ),
       ),
     );
