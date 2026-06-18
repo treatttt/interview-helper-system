@@ -3,37 +3,62 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 
-/// Источник банка вопросов
-/// Реализация читает локальный JSON; позже рядом появится серверная
+/// Источник банка вопросов.
+/// Реализация читает локальный JSON; позже рядом появится серверная.
 abstract class QuestionRepository {
-  Future<List<Topic>> loadTopics();
+  Future<List<Track>> loadTracks();
 }
 
 class JsonQuestionRepository implements QuestionRepository {
   @override
-  Future<List<Topic>> loadTopics() async {
+  Future<List<Track>> loadTracks() async {
     final raw = await rootBundle.loadString('assets/data/questions.json');
-    return parseTopics(raw); // I/O отдельно
+    return parseTracks(raw);
   }
 
   @visibleForTesting
-  List<Topic> parseTopics(String raw) {
-    // чистая логика - тестируется строками
+  List<Track> parseTracks(String raw) {
     final decoded = json.decode(raw);
-    if (decoded is! Map<String, dynamic> || decoded['topics'] is! List) {
-      throw const FormatException('Ожидался объект с ключом topics');
+    if (decoded is! Map<String, dynamic> || decoded['tracks'] is! List) {
+      throw const FormatException('Ожидался объект с ключом tracks');
     }
-    final topics = <Topic>[];
-    for (final rawTopic in decoded['topics'] as List) {
-      final topic = _parseTopic(rawTopic);
-      if (topic != null && topic.questions.isNotEmpty) topics.add(topic);
+    final tracks = <Track>[];
+    for (final rawTrack in decoded['tracks'] as List) {
+      final track = _parseTrack(rawTrack);
+      if (track != null) tracks.add(track);
     }
-    return topics;
+    return tracks;
   }
 
-  /// Разбирает тему. Возвращает null, если тема структурно битая.
-  /// Невалидные вопросы внутри темы отсеиваются, валидные остаются.
-  Topic? _parseTopic(dynamic raw) {
+  /// Разбирает направление. Невалидные вопросы внутри грейдов отсеиваются.
+  Track? _parseTrack(dynamic raw) {
+    try {
+      if (raw is! Map<String, dynamic>) return null;
+
+      final grades = <Grade>[];
+      final rawGrades = raw['grades'];
+      if (rawGrades is List) {
+        for (final rawG in rawGrades) {
+          final g = _parseGrade(rawG);
+          if (g != null) grades.add(g);
+        }
+      }
+
+      return Track(
+        id: raw['id'] as String,
+        title: raw['title'] as String,
+        description: raw['description'] as String?,
+        order: (raw['order'] as int?) ?? 0,
+        grades: grades,
+      );
+    } catch (e) {
+      debugPrint('Пропущено битое направление: $e');
+      return null;
+    }
+  }
+
+  /// Разбирает грейд. Невалидные вопросы отсеиваются, грейд остаётся.
+  Grade? _parseGrade(dynamic raw) {
     try {
       if (raw is! Map<String, dynamic>) return null;
 
@@ -46,19 +71,20 @@ class JsonQuestionRepository implements QuestionRepository {
         }
       }
 
-      return Topic(
+      return Grade(
         id: raw['id'] as String,
         title: raw['title'] as String,
+        description: raw['description'] as String?,
+        order: (raw['order'] as int?) ?? 0,
         questions: questions,
       );
     } catch (e) {
-      // Тема без id/title или с битой структурой — пропускаем целиком
-      debugPrint('Пропущена битая тема: $e');
+      debugPrint('Пропущен битый грейд: $e');
       return null;
     }
   }
 
-  /// Разбирает и проверяет вопрос. Возвращает null, если он битый или невалидный
+  /// Разбирает и проверяет вопрос. Возвращает null, если он битый или невалидный.
   Question? _parseQuestion(dynamic raw) {
     try {
       if (raw is! Map<String, dynamic>) return null;
@@ -69,7 +95,6 @@ class JsonQuestionRepository implements QuestionRepository {
       }
       return q;
     } catch (e) {
-      // Битый тип поля, отсутствующий ключ и т.п.
       debugPrint('Пропущен битый вопрос: $e');
       return null;
     }

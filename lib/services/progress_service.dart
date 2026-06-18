@@ -38,6 +38,10 @@ class ProgressService extends ChangeNotifier {
 
   int topicDone(String topicId) => _topicRecords[topicId] ?? 0;
 
+  /// Сколько вопросов верно ответил пользователь в конкретном грейде.
+  int gradeDone(String trackId, String gradeId) =>
+      _topicRecords['${trackId}_$gradeId'] ?? 0;
+
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     _xp = _prefs.getInt(_kXp) ?? 0;
