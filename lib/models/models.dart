@@ -21,16 +21,14 @@ class Question {
   /// Вопрос валиден, если из него можно составить осмысленный вопрос-выбор.
   bool get isValid {
     if (text.trim().isEmpty) return false;
-    if (options.length < 2) return false; // меньше 2 — выбирать не из чего
-    if (correctIndexes.isEmpty) return false; // нет правильного ответа
-    // Все индексы правильных ответов должны указывать на существующие варианты
+    if (options.length < 2) return false;
+    if (correctIndexes.isEmpty) return false;
     for (final i in correctIndexes) {
       if (i < 0 || i >= options.length) return false;
     }
     return true;
   }
 
-  /// Разбор сырого JSON в типизированный объект,
   /// Ключи должны совпадать с questions.json
   factory Question.fromJson(Map<String, dynamic> json) => Question(
         id: json['id'] as String,
@@ -42,23 +40,62 @@ class Question {
       );
 }
 
-/// Тема группировки вопросов
-class Topic {
+/// Грейд — уровень подготовки внутри направления (Junior / Middle / Senior).
+/// Содержит вопросы для сессии и метаданные для отображения.
+class Grade {
   final String id;
   final String title;
+  final String? description;
+  final int order;
   final List<Question> questions;
 
-  const Topic({
+  const Grade({
     required this.id,
     required this.title,
+    this.description,
+    required this.order,
     required this.questions,
   });
 
-  factory Topic.fromJson(Map<String, dynamic> json) => Topic(
+  factory Grade.fromJson(Map<String, dynamic> json) => Grade(
         id: json['id'] as String,
         title: json['title'] as String,
+        description: json['description'] as String?,
+        order: (json['order'] as int?) ?? 0,
         questions: (json['questions'] as List)
             .map((e) => Question.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }
+
+/// Направление — верхний уровень группировки (Аналитика, Разработка, Тестирование).
+/// Содержит грейды и метаданные для отображения.
+class Track {
+  final String id;
+  final String title;
+  final String? description;
+  final int order;
+  final List<Grade> grades;
+
+  const Track({
+    required this.id,
+    required this.title,
+    this.description,
+    required this.order,
+    required this.grades,
+  });
+
+  factory Track.fromJson(Map<String, dynamic> json) => Track(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        description: json['description'] as String?,
+        order: json['order'] as int,
+        grades: (json['grades'] as List)
+            .map((e) => Grade.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// Обратная совместимость: Topic — псевдоним Grade для плавного перехода.
+/// Использовать только в тестах, написанных до переименования.
+typedef Topic = Grade;
