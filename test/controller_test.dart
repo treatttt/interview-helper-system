@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/models.dart';
 
 void main() {
   // Хелперы вопросов.
   Question single() => const Question(
       id: 's', text: 'Один верный?', options: ['A', 'B', 'C'],
-      correctIndexes: [1]);
+      correctIndexes: [1],);
   Question multi() => const Question(
       id: 'm', text: 'Несколько верных?', options: ['A', 'B', 'C', 'D'],
-      correctIndexes: [0, 2]);
+      correctIndexes: [0, 2],);
 
   group('submit — идемпотентность (опора фикса двойного тапа)', () {
     test('повторный submit не пересчитывает баллы и не дублирует ответ', () {
@@ -112,7 +112,7 @@ void main() {
           c.submit();
           final answers = c.result.answers;
           expect(() => answers.add(answers.first), throwsUnsupportedError,
-              reason: 'result.answers должен быть неизменяемым для вызывающего');
+              reason: 'result.answers должен быть неизменяемым для вызывающего',);
         });
 
     test('selected в AnsweredQuestion — копия, не живая ссылка на _selected', () {

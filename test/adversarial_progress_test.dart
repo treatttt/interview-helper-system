@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 SessionResult r(Set<String> ids, {int wrong = 0}) => SessionResult(
       correct: ids.length,
@@ -32,7 +32,7 @@ void main() {
 
     test('100 одинаковых сессий дают столько же XP, сколько одна', () async {
       final p = await fresh();
-      for (int i = 0; i < 100; i++) {
+      for (var i = 0; i < 100; i++) {
         await p.recordSession('t_j', r({'q1', 'q2'}));
       }
       expect(p.xp, 20);

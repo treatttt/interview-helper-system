@@ -2,13 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:interview_helper_system/theme.dart';
 import 'package:interview_helper_system/models/models.dart';
-import 'package:interview_helper_system/services/question_repository.dart';
-import 'package:interview_helper_system/services/progress_service.dart';
-import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,18 +21,16 @@ Map<String, dynamic> _questionJson({
     {'id': id, 'text': text, 'options': options, 'correctIndexes': correctIndexes};
 
 Map<String, dynamic> _gradeJson({
-  String id = 'junior',
+  required List<Map<String, dynamic>> questions, String id = 'junior',
   String title = 'Junior',
   int order = 1,
-  required List<Map<String, dynamic>> questions,
 }) =>
     {'id': id, 'title': title, 'order': order, 'questions': questions};
 
 Map<String, dynamic> _trackJson({
-  String id = 'analytics',
+  required List<Map<String, dynamic>> grades, String id = 'analytics',
   String title = 'Аналитика',
   int order = 1,
-  required List<Map<String, dynamic>> grades,
 }) =>
     {'id': id, 'title': title, 'order': order, 'grades': grades};
 
@@ -67,10 +65,10 @@ void main() {
       List<int> correctIndexes = const [0],
     }) =>
         Question(
-            id: id, text: text, options: options, correctIndexes: correctIndexes);
+            id: id, text: text, options: options, correctIndexes: correctIndexes,);
 
     test('одиночный валидный вопрос → валиден', () {
-      expect(q(correctIndexes: const [0]).isValid, isTrue);
+      expect(q().isValid, isTrue);
     });
 
     test('множественный валидный вопрос → валиден', () {
@@ -92,7 +90,7 @@ void main() {
     test('индекс правильного ответа за границами (99) → невалиден', () {
       expect(
           q(options: const ['A', 'B'], correctIndexes: const [99]).isValid,
-          isFalse);
+          isFalse,);
     });
 
     test('отрицательный индекс → невалиден', () {
@@ -109,10 +107,10 @@ void main() {
       final raw = _bank([
         _trackJson(grades: [
           _gradeJson(questions: [
-            _questionJson(id: 'q1'),
+            _questionJson(),
             _questionJson(id: 'q2', correctIndexes: const [0, 1]),
-          ]),
-        ]),
+          ],),
+        ],),
       ]);
       final tracks = repo.parseTracks(raw);
       expect(tracks, hasLength(1));
@@ -133,13 +131,13 @@ void main() {
       final raw = _bank([
         _trackJson(grades: [
           _gradeJson(questions: [
-            _questionJson(id: 'ok', correctIndexes: const [0]),
+            _questionJson(id: 'ok'),
             _questionJson(
                 id: 'bad',
                 options: const ['A', 'B'],
-                correctIndexes: const [99]),
-          ]),
-        ]),
+                correctIndexes: const [99],),
+          ],),
+        ],),
       ]);
       final tracks = repo.parseTracks(raw);
       expect(tracks.single.grades.single.questions, hasLength(1));
@@ -154,9 +152,9 @@ void main() {
           _gradeJson(id: 'empty', questions: [
             _questionJson(correctIndexes: const []),
             _questionJson(options: const ['A']),
-          ]),
+          ],),
           _gradeJson(id: 'good', questions: [_questionJson()]),
-        ]),
+        ],),
       ]);
       final tracks = repo.parseTracks(raw);
       expect(tracks.single.grades, hasLength(2));
@@ -168,7 +166,7 @@ void main() {
       final raw = _bank([
         _trackJson(grades: [
           _gradeJson(questions: [_questionJson(correctIndexes: const [])]),
-        ]),
+        ],),
       ]);
       final tracks = repo.parseTracks(raw);
       expect(tracks, hasLength(1));

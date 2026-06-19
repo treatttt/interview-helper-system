@@ -1,7 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import '../models/models.dart';
+import 'package:interview_helper_system/models/models.dart';
 
 /// Источник банка вопросов.
 /// Реализация читает локальный JSON; позже рядом появится серверная.

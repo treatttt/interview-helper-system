@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import '../services/theme_service.dart';
+import 'package:interview_helper_system/services/theme_service.dart';
 
 /// Минимальный экран настроек. Сейчас — только выбор темы.
 /// Сюда же позже ляжет смена роли (когда ролей станет несколько).
 class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({required this.themeService, super.key});
   final ThemeService themeService;
-
-  const SettingsScreen({super.key, required this.themeService});
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +27,8 @@ class SettingsScreen extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text('Тема',
-                    style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
               ),
               RadioListTile<ThemeMode>(
                 title: Text('Как в системе'),

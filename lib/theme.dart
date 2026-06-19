@@ -16,10 +16,6 @@ const _brandSeed = Color(0xFF534AB7); // фиолетовый акцент
 // ─────────────────────────────────────────────────────────────────────────
 @immutable
 class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
-  final Color successFg, successBorder, successBg;
-  final Color warningFg, warningBorder, warningBg;
-  final Color dangerFg, dangerBorder, dangerBg;
-  final Color infoFg, infoBorder, infoBg;
 
   const AppSemanticColors({
     required this.successFg,
@@ -35,6 +31,19 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.infoBorder,
     required this.infoBg,
   });
+
+  final Color successFg;
+  final Color successBorder;
+  final Color successBg;
+  final Color warningFg;
+  final Color warningBorder;
+  final Color warningBg;
+  final Color dangerFg;
+  final Color dangerBorder;
+  final Color dangerBg;
+  final Color infoFg;
+  final Color infoBorder;
+  final Color infoBg;
 
   /// Светлая палитра. Значения foreground тёмные (читаемы на светлом фоне),
   /// bg — светлые тинты, border — средняя насыщенность.
@@ -142,7 +151,6 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 ThemeData buildLightTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: _brandSeed,
-    brightness: Brightness.light,
   ).copyWith(
     primary: _brandSeed,
     surface: const Color(0xFFFFFFFF),

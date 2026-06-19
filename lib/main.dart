@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'services/question_repository.dart';
-import 'services/progress_service.dart';
-import 'services/theme_service.dart';
-import 'screens/home_screen.dart';
-import 'screens/onboarding_screen.dart';
-import 'theme.dart';
+import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/screens/onboarding_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,15 +16,14 @@ void main() async {
 }
 
 class InterviewHelperApp extends StatelessWidget {
+  InterviewHelperApp({
+    required this.progress,
+    required this.themeService,
+    super.key,
+  });
   final ProgressService progress;
   final ThemeService themeService;
   final navigatorKey = GlobalKey<NavigatorState>();
-
-  InterviewHelperApp({
-    super.key,
-    required this.progress,
-    required this.themeService,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +43,8 @@ class InterviewHelperApp extends StatelessWidget {
             ? HomeScreen(
                 repository: repository,
                 progress: progress,
-                themeService: themeService)
+                themeService: themeService,
+              )
             : OnboardingScreen(
                 onFinish: () {
                   progress.markOnboardingDone();
@@ -53,7 +53,9 @@ class InterviewHelperApp extends StatelessWidget {
                         builder: (_) => HomeScreen(
                             repository: repository,
                             progress: progress,
-                            themeService: themeService)),
+                        themeService: themeService,
+                      ),
+                    ),
                   );
                 },
               ),

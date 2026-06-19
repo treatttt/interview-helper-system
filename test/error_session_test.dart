@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
 import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Минимальный вопрос для тестов — одиночный выбор.
 Question fakeQ(String id) => Question(

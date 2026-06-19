@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:interview_helper_system/controllers/session_controller.dart';
 // ⚠️ имя пакета подставь как в твоих остальных тестах (поле name из pubspec.yaml)
 import 'package:interview_helper_system/services/progress_service.dart';
-import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   // Для серии важен сам факт завершённой сессии — счётчики/XP на streak не влияют.
@@ -20,7 +20,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    fakeNow = DateTime(2024, 6, 10, 9, 0); // дефолт, тесты переопределяют
+    fakeNow = DateTime(2024, 6, 10, 9); // дефолт, тесты переопределяют
     progress = ProgressService(clock: () => fakeNow);
     await progress.init(); // пустой мок → xp=0, streak=0, lastDay=null
   });
@@ -40,14 +40,14 @@ void main() {
 
     test('занятие на следующий день продлевает серию', () async {
       await progress.recordSession('t1', session);
-      fakeNow = DateTime(2024, 6, 11, 9, 0);
+      fakeNow = DateTime(2024, 6, 11, 9);
       await progress.recordSession('t1', session);
       expect(progress.streak, 2);
     });
 
     test('пропуск дня сбрасывает серию на 1', () async {
       await progress.recordSession('t1', session);
-      fakeNow = DateTime(2024, 6, 12, 9, 0); // через день
+      fakeNow = DateTime(2024, 6, 12, 9); // через день
       await progress.recordSession('t1', session);
       expect(progress.streak, 1);
     });

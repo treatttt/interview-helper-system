@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
-import '../controllers/session_controller.dart';
-import '../models/models.dart';
-import 'session_screen.dart';
-import '../services/progress_service.dart';
-import '../theme.dart';
-import '../utils/option_highlight.dart';
+import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/screens/session_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/utils/option_highlight.dart';
 
 class ReviewScreen extends StatelessWidget {
-  final SessionResult result;
-  final Track track;
-  final Grade grade;
-  final ProgressService progress;
-
   const ReviewScreen({
-    super.key,
     required this.result,
     required this.track,
     required this.grade,
     required this.progress,
+    super.key,
   });
+  final SessionResult result;
+  final Track track;
+  final Grade grade;
+  final ProgressService progress;
 
   @override
   Widget build(BuildContext context) {
@@ -61,9 +60,13 @@ class ReviewScreen extends StatelessWidget {
                           );
                         },
                   style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: Text(
-                      errorQuestions.isEmpty ? 'Ошибок нет' : 'Проработать ошибки'),
+                    errorQuestions.isEmpty
+                        ? 'Ошибок нет'
+                        : 'Проработать ошибки',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -72,7 +75,8 @@ class ReviewScreen extends StatelessWidget {
                   onPressed: () =>
                       Navigator.of(context).popUntil((r) => r.isFirst),
                   style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('В меню'),
                 ),
               ),
@@ -85,9 +89,10 @@ class ReviewScreen extends StatelessWidget {
 }
 
 class _AnswerCard extends StatelessWidget {
-  final AnsweredQuestion answer;
 
   const _AnswerCard({required this.answer});
+
+  final AnsweredQuestion answer;
 
   @override
   Widget build(BuildContext context) {
@@ -108,8 +113,8 @@ class _AnswerCard extends StatelessWidget {
           _outcomeBadge(context, answer.outcome),
           const SizedBox(height: 8),
           Text(q.text,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 12),
           ...List.generate(
             q.options.length,
@@ -133,7 +138,8 @@ class _AnswerCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(q.explanation!,
-                  style: TextStyle(fontSize: 13, color: s.infoFg)),
+                style: TextStyle(fontSize: 13, color: s.infoFg),
+              ),
             ),
           ],
         ],
@@ -149,7 +155,9 @@ class _AnswerCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final s = AppSemanticColors.of(context);
 
-    late final Color bg, border, fg;
+    late final Color bg;
+    late final Color border;
+    late final Color fg;
     late final IconData icon;
     late final String? tag;
 
@@ -196,12 +204,17 @@ class _AnswerCard extends StatelessWidget {
             Icon(icon, size: 18, color: fg),
             const SizedBox(width: 10),
             Expanded(
-                child: Text(text, style: TextStyle(color: fg, fontSize: 14))),
+              child: Text(text, style: TextStyle(color: fg, fontSize: 14)),
+            ),
             if (tag != null) ...[
               const SizedBox(width: 8),
               Text(tag,
                   style: TextStyle(
-                      color: fg, fontSize: 12, fontWeight: FontWeight.w600)),
+                  color: fg,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ],
         ),
@@ -235,7 +248,11 @@ class _AnswerCard extends StatelessWidget {
         const SizedBox(width: 6),
         Text(label,
             style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
       ],
     );
   }

@@ -26,7 +26,9 @@ class ThemeService extends ChangeNotifier {
     if (mode == _mode) return;
     _mode = mode;
     await _prefs.setString(
-        _kThemeMode, mode.name); // 'light' / 'dark' / 'system'
+      _kThemeMode,
+      mode.name,
+    ); // 'light' / 'dark' / 'system'
     notifyListeners();
   }
 }
