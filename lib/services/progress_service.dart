@@ -3,17 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../controllers/session_controller.dart' show SessionResult;
 
-/// Хранит прогресс пользователя на устройстве: XP, streak, рекорды по темам.
-/// Данные лежат в SharedPreferences и переживают перезапуск приложения.
+/// Хранит прогресс пользователя: XP, streak, освоенные вопросы по грейдам,
+/// незавершённую сессию (один слот). Данные переживают перезапуск приложения.
 class ProgressService extends ChangeNotifier {
   static const _kXp = 'xp';
   static const _kStreak = 'streak';
   static const _kLastDay = 'last_active_day';
-  static const _kTopics = 'topic_records';
+  static const _kMasteredIds = 'mastered_ids'; // Map<gradeKey, List<questionId>>
+  static const _kIncompleteSession = 'incomplete_session';
   static const _kOnboardingDone = 'onboarding_done';
 
-  /// Источник «сейчас». В проде — системные часы; в тестах подменяется,
-  /// чтобы детерминированно проверять границы дня. Дефолт = поведение как было.
   final DateTime Function() _clock;
 
   ProgressService({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
@@ -23,24 +22,25 @@ class ProgressService extends ChangeNotifier {
   int _xp = 0;
   int _streak = 0;
   String? _lastActiveDay;
-  Map<String, int> _topicRecords = {};
+  Map<String, Set<String>> _masteredIds = {}; // gradeKey → Set<questionId>
+  Map<String, dynamic>? _incompleteSession;
   bool _onboardingDone = false;
 
   int get xp => _xp;
-
   int get streak => _streak;
-
-  /// Кэшируется в init(), а НЕ читается из _prefs на лету.
   bool get onboardingDone => _onboardingDone;
-
-  /// Была ли завершена хотя бы одна сессия за всё время.
   bool get hasTrainedEver => _lastActiveDay != null;
 
-  int topicDone(String topicId) => _topicRecords[topicId] ?? 0;
+  /// Обратная совместимость для тестов: количество освоенных вопросов в теме.
+  int topicDone(String topicId) => _masteredIds[topicId]?.length ?? 0;
 
-  /// Сколько вопросов верно ответил пользователь в конкретном грейде.
+  /// Сколько вопросов освоено в конкретном грейде.
   int gradeDone(String trackId, String gradeId) =>
-      _topicRecords['${trackId}_$gradeId'] ?? 0;
+      masteredIds(trackId, gradeId).length;
+
+  /// Множество ID вопросов, верно отвеченных в грейде (для фильтрации пула).
+  Set<String> masteredIds(String trackId, String gradeId) =>
+      _masteredIds['${trackId}_$gradeId'] ?? const {};
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -48,37 +48,56 @@ class ProgressService extends ChangeNotifier {
     _streak = _prefs.getInt(_kStreak) ?? 0;
     _lastActiveDay = _prefs.getString(_kLastDay);
     _onboardingDone = _prefs.getBool(_kOnboardingDone) ?? false;
-    _topicRecords = _readTopicRecords();
+    _masteredIds = _readMasteredIds();
+    _incompleteSession = _readIncompleteSession();
     notifyListeners();
   }
 
-  /// Толерантное чтение рекордов: битый JSON или нечисловые значения не валят старт.
-  Map<String, int> _readTopicRecords() {
-    final raw = _prefs.getString(_kTopics);
+  Map<String, Set<String>> _readMasteredIds() {
+    final raw = _prefs.getString(_kMasteredIds);
     if (raw == null) return {};
     try {
       final decoded = json.decode(raw);
       if (decoded is! Map) return {};
-      final parsed = <String, int>{};
+      final result = <String, Set<String>>{};
       decoded.forEach((k, v) {
-        if (k is String && v is int) parsed[k] = v;
+        if (k is String && v is List) {
+          result[k] = v.whereType<String>().toSet();
+        }
       });
-      return parsed;
+      return result;
     } catch (e) {
-      debugPrint('ProgressService: повреждён $_kTopics, сброс — $e');
+      debugPrint('ProgressService: повреждён $_kMasteredIds, сброс — $e');
       return {};
     }
   }
 
-  /// Записать итог завершённой сессии: начислить XP, обновить streak и рекорд темы.
-  Future<void> recordSession(String topicId, SessionResult result) async {
-    final best = _topicRecords[topicId] ?? 0;
+  Map<String, dynamic>? _readIncompleteSession() {
+    final raw = _prefs.getString(_kIncompleteSession);
+    if (raw == null) return null;
+    try {
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return null;
+      return decoded.cast<String, dynamic>();
+    } catch (_) {
+      return null;
+    }
+  }
 
-    // XP только за НОВЫЙ прогресс по теме: сколько верных сверх прежнего рекорда.
-    if (result.correct > best) {
-      final gain = result.correct - best;
-      _xp += gain * 10;
-      _topicRecords[topicId] = result.correct;
+  /// Записать итог завершённой сессии: начислить XP за новые ID, обновить streak.
+  Future<void> recordSession(String gradeKey, SessionResult result) async {
+    final existing = _masteredIds[gradeKey] ?? const <String>{};
+    final gained = result.correctIds.difference(existing);
+
+    if (gained.isNotEmpty) {
+      _xp += gained.length * 10;
+      _masteredIds[gradeKey] = {...existing, ...result.correctIds};
+    }
+
+    // Сессия завершена — слот незавершённой сессии для этого грейда сбрасывается.
+    if (_incompleteSession?['gradeKey'] == gradeKey) {
+      _incompleteSession = null;
+      await _prefs.remove(_kIncompleteSession);
     }
 
     _updateStreak();
@@ -86,20 +105,56 @@ class ProgressService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Streak: дни подряд с занятиями. Засчитывается любой завершённой сессией.
+  /// Вернуть сохранённую незавершённую сессию для gradeKey, или null.
+  Map<String, dynamic>? loadIncompleteSession(String gradeKey) {
+    final s = _incompleteSession;
+    if (s == null || s['gradeKey'] != gradeKey) return null;
+    return s;
+  }
+
+  /// Сохранить незавершённую сессию (синхронно в памяти, асинхронно на диск).
+  /// Вызывается из dispose() виджета — не должен блокировать.
+  // ignore: discarded_futures
+  void saveIncompleteSessionSync(Map<String, dynamic> data) {
+    _incompleteSession = data;
+    _prefs.setString(_kIncompleteSession, json.encode(data));
+  }
+
+  /// Сохранить незавершённую сессию асинхронно (из обычных async-контекстов).
+  Future<void> saveIncompleteSession(Map<String, dynamic> data) async {
+    _incompleteSession = data;
+    await _prefs.setString(_kIncompleteSession, json.encode(data));
+  }
+
+  /// Очистить незавершённую сессию. [gradeKey] — только для этого грейда;
+  /// если null — безусловно.
+  Future<void> clearIncompleteSession({String? gradeKey}) async {
+    if (gradeKey != null && _incompleteSession?['gradeKey'] != gradeKey) return;
+    _incompleteSession = null;
+    await _prefs.remove(_kIncompleteSession);
+  }
+
+  /// Сбросить прогресс грейда: очистить освоенные вопросы и незавершённую сессию.
+  Future<void> resetGrade(String trackId, String gradeId) async {
+    final key = '${trackId}_$gradeId';
+    _masteredIds.remove(key);
+    if (_incompleteSession?['gradeKey'] == key) {
+      _incompleteSession = null;
+      await _prefs.remove(_kIncompleteSession);
+    }
+    await _save();
+    notifyListeners();
+  }
+
   void _updateStreak() {
     final now = _clock();
     final todayKey = _dayKey(now);
-    if (_lastActiveDay == todayKey) return; // сегодня уже занимались
-
-    // «Вчера» через КАЛЕНДАРЬ (day - 1), а не вычитание 24ч: subtract(Duration)
-    // на DST-переходе съезжает на лишний день и ложно рвёт серию около полуночи.
-    // Конструктор DateTime нормализует переход через границу месяца/года.
+    if (_lastActiveDay == todayKey) return;
     final yesterdayKey = _dayKey(DateTime(now.year, now.month, now.day - 1));
     if (_lastActiveDay == yesterdayKey) {
-      _streak += 1; // занимались вчера — серия продолжается
+      _streak += 1;
     } else {
-      _streak = 1; // пропуск (или первый раз) — серия начинается заново
+      _streak = 1;
     }
     _lastActiveDay = todayKey;
   }
@@ -109,7 +164,6 @@ class ProgressService extends ChangeNotifier {
     await _prefs.setBool(_kOnboardingDone, true);
   }
 
-  /// Дата без времени, в виде строки YYYY-MM-DD — для сравнения по дням.
   String _dayKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -119,6 +173,7 @@ class ProgressService extends ChangeNotifier {
     if (_lastActiveDay != null) {
       await _prefs.setString(_kLastDay, _lastActiveDay!);
     }
-    await _prefs.setString(_kTopics, json.encode(_topicRecords));
+    final serialized = _masteredIds.map((k, v) => MapEntry(k, v.toList()));
+    await _prefs.setString(_kMasteredIds, json.encode(serialized));
   }
 }
