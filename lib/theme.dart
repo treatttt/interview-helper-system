@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Бренд-семя. От него обе схемы (светлая/тёмная) производят стандартные роли.
 /// Тема-независимо — это исходный цвет бренда, не «светлый» и не «тёмный».
-const _brandSeed = Color(0xFF534AB7); // фиолетовый акцент
+const _brandSeed = Color(0xFF993556); // розовый бренд-акцент
 
 // ─────────────────────────────────────────────────────────────────────────
 //  Семантические цвета (success / warning / danger / info).
@@ -153,12 +153,13 @@ ThemeData buildLightTheme() {
     seedColor: _brandSeed,
   ).copyWith(
     primary: _brandSeed,
+    onPrimary: const Color(0xFFFFFFFF),
+    primaryContainer: const Color(0xFFFBDCE6),
+    onPrimaryContainer: const Color(0xFF3E0A1E),
     surface: const Color(0xFFFFFFFF),
     onSurface: const Color(0xFF1A1A18),
-    // textPrimary
     onSurfaceVariant: const Color(0xFF5F5E5A),
-    // textSecondary
-    outlineVariant: const Color(0xFFE4E2DA), // border
+    outlineVariant: const Color(0xFFE4E2DA),
   );
 
   return _baseTheme(
@@ -173,16 +174,14 @@ ThemeData buildDarkTheme() {
     seedColor: _brandSeed,
     brightness: Brightness.dark,
   ).copyWith(
-    primary: const Color(0xFFA79EEC),
-    // осветлённый акцент для контраста
-    onPrimary: const Color(0xFF1E1A33),
+    primary: const Color(0xFFD4537E),
+    onPrimary: const Color(0xFFFFFFFF),
+    primaryContainer: const Color(0xFF5A2238),
+    onPrimaryContainer: const Color(0xFFFBDCE6),
     surface: const Color(0xFF232220),
-    // приподнятая поверхность (карточки)
     onSurface: const Color(0xFFF2F1EC),
-    // тёплый белый текст
     onSurfaceVariant: const Color(0xFFA6A49D),
-    // вторичный текст
-    outlineVariant: const Color(0xFF3A3833), // border
+    outlineVariant: const Color(0xFF3A3833),
   );
 
   return _baseTheme(
