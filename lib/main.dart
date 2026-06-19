@@ -49,7 +49,7 @@ class InterviewHelperApp extends StatelessWidget {
                 onFinish: () {
                   progress.markOnboardingDone();
                   navigatorKey.currentState?.pushReplacement(
-                    MaterialPageRoute(
+                    MaterialPageRoute<void>(
                         builder: (_) => HomeScreen(
                             repository: repository,
                             progress: progress,

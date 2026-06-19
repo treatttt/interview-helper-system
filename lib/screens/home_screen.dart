@@ -86,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Настройки',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
+              MaterialPageRoute<void>(
                 builder: (_) =>
                     SettingsScreen(themeService: widget.themeService),
               ),
@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
+          MaterialPageRoute<void>(
             builder: (_) => GradesScreen(
               track: track,
               progress: widget.progress,

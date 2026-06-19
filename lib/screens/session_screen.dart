@@ -61,7 +61,6 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   /// Сохранить состояние сессии при выходе без завершения.
-  // ignore: discarded_futures
   void _saveIncompleteSession() {
     final c = _controller;
     // Сохраняем только если хотя бы один вопрос отвечен и сессия не завершена.
@@ -90,7 +89,7 @@ class _SessionScreenState extends State<SessionScreen> {
       final sessionKey = '${widget.track.id}_${widget.grade.id}';
       widget.progress.recordSession(sessionKey, _controller.result);
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
             result: _controller.result,
             track: widget.track,

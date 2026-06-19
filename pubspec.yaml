@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  shared_preferences: ^2.5.5   # локальное хранение прогресса и streak
   http: ^1.2.2                 # запросы к твоему серверу (на будущее)
+  shared_preferences: ^2.5.5   # локальное хранение прогресса и streak
 
 dev_dependencies:
   dart_code_linter: ^4.1.5

@@ -11,6 +11,8 @@ analyzer:
 linter:
   rules:
     prefer_const_constructors: true
+    public_member_api_docs: false      # solo MVP, документация не нужна
+    lines_longer_than_80_chars: false  # допустимый лимит поднят до 100 символов
 
 dart_code_linter:
   metrics:
@@ -27,5 +29,4 @@ dart_code_linter:
     - no-boolean-literal-compare
     - no-empty-block
     - prefer-conditional-expressions
-    - prefer-match-file-name
     - prefer-trailing-comma

@@ -62,7 +62,7 @@ class ResultScreen extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
+                  MaterialPageRoute<void>(
                     builder: (_) => ReviewScreen(
                       result: result,
                       track: track,

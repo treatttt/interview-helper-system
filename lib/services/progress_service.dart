@@ -119,9 +119,10 @@ class ProgressService extends ChangeNotifier {
 
   /// Сохранить незавершённую сессию (синхронно в памяти, асинхронно на диск).
   /// Вызывается из dispose() виджета — не должен блокировать.
-  // ignore: discarded_futures
   void saveIncompleteSessionSync(Map<String, dynamic> data) {
     _incompleteSession = data;
+    // Fire-and-forget: вызывается из dispose(), await невозможен.
+    // ignore: discarded_futures
     _prefs.setString(_kIncompleteSession, json.encode(data));
   }
 

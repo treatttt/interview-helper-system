@@ -48,7 +48,7 @@ class ReviewScreen extends StatelessWidget {
                       ? null
                       : () {
                           Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
+                            MaterialPageRoute<void>(
                               builder: (_) => SessionScreen(
                                 track: track,
                                 grade: grade,

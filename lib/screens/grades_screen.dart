@@ -92,7 +92,7 @@ class _GradesScreenState extends State<GradesScreen> {
     }
 
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => SessionScreen(
           track: widget.track,
           grade: grade,
