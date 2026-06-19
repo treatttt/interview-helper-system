@@ -4,6 +4,7 @@ import '../models/models.dart';
 import 'session_screen.dart';
 import '../services/progress_service.dart';
 import '../theme.dart';
+import '../utils/option_highlight.dart';
 
 class ReviewScreen extends StatelessWidget {
   final SessionResult result;
@@ -21,6 +22,11 @@ class ReviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final errorQuestions = result.answers
+        .where((a) => a.outcome != AnswerOutcome.correct)
+        .map((a) => a.question)
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Разбор ответов'),
@@ -39,24 +45,25 @@ class ReviewScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () async {
-                    await progress.resetGrade(track.id, grade.id);
-                    if (!context.mounted) return;
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) => SessionScreen(
-                          track: track,
-                          grade: grade,
-                          questions: grade.questions,
-                          progress: progress,
-                        ),
-                      ),
-                      (r) => r.isFirst,
-                    );
-                  },
+                  onPressed: errorQuestions.isEmpty
+                      ? null
+                      : () {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => SessionScreen(
+                                track: track,
+                                grade: grade,
+                                questions: errorQuestions,
+                                progress: progress,
+                              ),
+                            ),
+                            (r) => r.isFirst,
+                          );
+                        },
                   style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14)),
-                  child: const Text('Пройти заново'),
+                  child: Text(
+                      errorQuestions.isEmpty ? 'Ошибок нет' : 'Проработать ошибки'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -109,8 +116,11 @@ class _AnswerCard extends StatelessWidget {
             (i) => _optionRow(
               context: context,
               text: q.options[i],
-              correct: q.correctIndexes.contains(i),
-              picked: answer.selected.contains(i),
+              highlight: resolveOptionHighlight(
+                isCorrect: q.correctIndexes.contains(i),
+                isPicked: answer.selected.contains(i),
+                isMultiChoice: q.isMultipleChoice,
+              ),
             ),
           ),
           if (q.explanation != null && q.explanation!.trim().isNotEmpty) ...[
@@ -134,8 +144,7 @@ class _AnswerCard extends StatelessWidget {
   Widget _optionRow({
     required BuildContext context,
     required String text,
-    required bool correct,
-    required bool picked,
+    required OptionHighlight highlight,
   }) {
     final cs = Theme.of(context).colorScheme;
     final s = AppSemanticColors.of(context);
@@ -144,30 +153,31 @@ class _AnswerCard extends StatelessWidget {
     late final IconData icon;
     late final String? tag;
 
-    if (correct && picked) {
-      bg = s.successBg;
-      border = s.successBorder;
-      fg = s.successFg;
-      icon = Icons.check_circle;
-      tag = 'верно';
-    } else if (correct && !picked) {
-      bg = s.warningBg;
-      border = s.warningBorder;
-      fg = s.warningFg;
-      icon = Icons.error_outline;
-      tag = 'пропущено';
-    } else if (!correct && picked) {
-      bg = s.dangerBg;
-      border = s.dangerBorder;
-      fg = s.dangerFg;
-      icon = Icons.cancel;
-      tag = 'лишнее';
-    } else {
-      bg = Colors.transparent;
-      border = cs.outlineVariant;
-      fg = cs.onSurface;
-      icon = Icons.circle_outlined;
-      tag = null;
+    switch (highlight) {
+      case OptionHighlight.correct:
+        bg = s.successBg;
+        border = s.successBorder;
+        fg = s.successFg;
+        icon = Icons.check_circle;
+        tag = 'верно';
+      case OptionHighlight.missed:
+        bg = s.warningBg;
+        border = s.warningBorder;
+        fg = s.warningFg;
+        icon = Icons.error_outline;
+        tag = 'пропущено';
+      case OptionHighlight.wrong:
+        bg = s.dangerBg;
+        border = s.dangerBorder;
+        fg = s.dangerFg;
+        icon = Icons.cancel;
+        tag = 'лишнее';
+      case OptionHighlight.neutral:
+        bg = Colors.transparent;
+        border = cs.outlineVariant;
+        fg = cs.onSurface;
+        icon = Icons.circle_outlined;
+        tag = null;
     }
 
     return Padding(
@@ -209,17 +219,14 @@ class _AnswerCard extends StatelessWidget {
         color = s.successFg;
         label = 'Верно';
         icon = Icons.check_circle;
-        break;
       case AnswerOutcome.partial:
         color = s.warningFg;
         label = 'Частично';
         icon = Icons.remove_circle;
-        break;
       case AnswerOutcome.wrong:
         color = s.dangerFg;
         label = 'Неверно';
         icon = Icons.cancel;
-        break;
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
