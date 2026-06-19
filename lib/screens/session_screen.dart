@@ -4,6 +4,7 @@ import '../controllers/session_controller.dart';
 import 'result_screen.dart';
 import '../services/progress_service.dart';
 import '../theme.dart';
+import '../utils/option_highlight.dart';
 
 class SessionScreen extends StatefulWidget {
   final Track track;
@@ -231,20 +232,25 @@ class _SessionScreenState extends State<SessionScreen> {
         text = cs.onPrimaryContainer;
       }
     } else {
-      if (correct && picked) {
-        bg = s.successBg;
-        border = s.successBorder;
-        text = s.successFg;
-      } else if (correct && !picked) {
-        // Правильный вариант, но пользователь его не выбрал — подсвечиваем зелёным,
-        // чтобы было сразу видно верный ответ (не жёлтым, как в review).
-        bg = s.successBg;
-        border = s.successBorder;
-        text = s.successFg;
-      } else if (!correct && picked) {
-        bg = s.dangerBg;
-        border = s.dangerBorder;
-        text = s.dangerFg;
+      switch (resolveOptionHighlight(
+        isCorrect: correct,
+        isPicked: picked,
+        isMultiChoice: c.current.isMultipleChoice,
+      )) {
+        case OptionHighlight.correct:
+          bg = s.successBg;
+          border = s.successBorder;
+          text = s.successFg;
+        case OptionHighlight.missed:
+          bg = s.warningBg;
+          border = s.warningBorder;
+          text = s.warningFg;
+        case OptionHighlight.wrong:
+          bg = s.dangerBg;
+          border = s.dangerBorder;
+          text = s.dangerFg;
+        case OptionHighlight.neutral:
+          break; // остаётся цвет поверхности
       }
     }
 
