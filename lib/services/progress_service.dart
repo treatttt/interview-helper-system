@@ -39,8 +39,11 @@ class ProgressService extends ChangeNotifier {
       masteredIds(trackId, gradeId).length;
 
   /// Множество ID вопросов, верно отвеченных в грейде (для фильтрации пула).
-  Set<String> masteredIds(String trackId, String gradeId) =>
-      _masteredIds['${trackId}_$gradeId'] ?? const {};
+  /// Возвращает неизменяемую копию — мутация не затрагивает внутреннее состояние.
+  Set<String> masteredIds(String trackId, String gradeId) {
+    final inner = _masteredIds['${trackId}_$gradeId'];
+    return inner == null ? const {} : Set.unmodifiable(inner);
+  }
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
