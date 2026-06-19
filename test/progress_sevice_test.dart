@@ -4,7 +4,8 @@ import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
 
 void main() {
-  // Результат сессии с нужным числом верных. answers для recordSession неважен.
+  // Результат сессии с нужным числом верных.
+  // correctIds: 'q1'..'qN' — уникальны по позиции, имитируют реальные ID.
   SessionResult res(int correct, {int total = 4}) => SessionResult(
     correct: correct,
     partial: 0,
@@ -12,6 +13,7 @@ void main() {
     points: correct,
     maxPoints: total,
     answers: const [],
+    correctIds: {for (int i = 0; i < correct; i++) 'q${i + 1}'},
   );
 
   // Свежий проинициализированный сервис на чистом хранилище.

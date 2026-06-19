@@ -10,11 +10,23 @@ class SessionScreen extends StatefulWidget {
   final Grade grade;
   final ProgressService progress;
 
+  /// Отфильтрованный список вопросов для сессии (без уже освоенных).
+  final List<Question> questions;
+
+  /// Индекс вопроса, с которого начинать (для resume).
+  final int initialIndex;
+
+  /// Уже отвеченные вопросы из предыдущей части сессии (для resume).
+  final List<AnsweredQuestion> previousAnswers;
+
   const SessionScreen({
     super.key,
     required this.track,
     required this.grade,
     required this.progress,
+    required this.questions,
+    this.initialIndex = 0,
+    this.previousAnswers = const [],
   });
 
   @override
@@ -28,13 +40,45 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = SessionController(widget.grade.questions);
+    if (widget.previousAnswers.isEmpty && widget.initialIndex == 0) {
+      _controller = SessionController(widget.questions);
+    } else {
+      _controller = SessionController.resume(
+        questions: widget.questions,
+        startIndex: widget.initialIndex,
+        previousAnswers: widget.previousAnswers,
+      );
+    }
   }
 
   @override
   void dispose() {
+    if (!_finishing) {
+      _saveIncompleteSession();
+    }
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Сохранить состояние сессии при выходе без завершения.
+  // ignore: discarded_futures
+  void _saveIncompleteSession() {
+    final c = _controller;
+    // Сохраняем только если хотя бы один вопрос отвечен и сессия не завершена.
+    if (c.answers.isEmpty || c.answers.length >= c.total) return;
+
+    widget.progress.saveIncompleteSessionSync({
+      'gradeKey': '${widget.track.id}_${widget.grade.id}',
+      'questionIds': widget.questions.map((q) => q.id).toList(),
+      'currentIndex': c.answers.length,
+      'answeredData': c.answers
+          .map((a) => {
+                'id': a.question.id,
+                'selected': a.selected.toList(),
+                'outcome': a.outcome.name,
+              })
+          .toList(),
+    });
   }
 
   void _onNext() {
@@ -192,9 +236,11 @@ class _SessionScreenState extends State<SessionScreen> {
         border = s.successBorder;
         text = s.successFg;
       } else if (correct && !picked) {
-        bg = s.warningBg;
-        border = s.warningBorder;
-        text = s.warningFg;
+        // Правильный вариант, но пользователь его не выбрал — подсвечиваем зелёным,
+        // чтобы было сразу видно верный ответ (не жёлтым, как в review).
+        bg = s.successBg;
+        border = s.successBorder;
+        text = s.successFg;
       } else if (!correct && picked) {
         bg = s.dangerBg;
         border = s.dangerBorder;

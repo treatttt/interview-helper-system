@@ -39,16 +39,21 @@ class ReviewScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (_) => SessionScreen(
-                        track: track,
-                        grade: grade,
-                        progress: progress,
+                  onPressed: () async {
+                    await progress.resetGrade(track.id, grade.id);
+                    if (!context.mounted) return;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => SessionScreen(
+                          track: track,
+                          grade: grade,
+                          questions: grade.questions,
+                          progress: progress,
+                        ),
                       ),
-                    ),
-                    (r) => r.isFirst,
-                  ),
+                      (r) => r.isFirst,
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14)),
                   child: const Text('Пройти заново'),
