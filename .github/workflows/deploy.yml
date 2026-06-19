@@ -7,11 +7,9 @@ on:
 
 jobs:
   build:
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
     runs-on: ubuntu-latest
+    permissions:
+      contents: read          # только чтение репозитория для checkout
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -26,6 +24,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write            # публикация на Pages
+      id-token: write         # OIDC-токен для deploy-pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
