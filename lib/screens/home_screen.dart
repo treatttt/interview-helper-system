@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
-import '../models/models.dart';
-import '../services/question_repository.dart';
-import '../services/progress_service.dart';
-import '../services/theme_service.dart';
-import '../theme.dart';
-import 'grades_screen.dart';
-import 'settings_screen.dart';
+import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/screens/grades_screen.dart';
+import 'package:interview_helper_system/screens/settings_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/theme.dart';
 
 class HomeScreen extends StatefulWidget {
-  final QuestionRepository repository;
-  final ProgressService progress;
-  final ThemeService themeService;
-
   const HomeScreen({
-    super.key,
     required this.repository,
     required this.progress,
     required this.themeService,
+    super.key,
   });
+  final QuestionRepository repository;
+  final ProgressService progress;
+  final ThemeService themeService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -56,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Тренажёр',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
         actions: [
           ListenableBuilder(
             listenable: widget.progress,
@@ -67,12 +67,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   children: [
                     const Icon(Icons.local_fire_department,
-                        color: Colors.orange, size: 20),
+                      color: Colors.orange,
+                      size: 20,
+                    ),
                     const SizedBox(width: 4),
                     Text('${widget.progress.streak}',
                         style: const TextStyle(
                             color: Colors.orange,
-                            fontWeight: FontWeight.w500)),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -122,13 +126,16 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Твой прогресс',
-              style: TextStyle(color: s.infoFg, fontSize: 13)),
+            style: TextStyle(color: s.infoFg, fontSize: 13),
+          ),
           const SizedBox(height: 4),
           Text('${widget.progress.xp} XP',
               style: TextStyle(
                   color: s.infoFg,
                   fontSize: 22,
-                  fontWeight: FontWeight.w500)),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -169,14 +176,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       track.title,
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     if (track.description != null) ...[
                       const SizedBox(height: 3),
                       Text(
                         track.description!,
                         style: TextStyle(
-                            fontSize: 12, color: cs.onSurfaceVariant),
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -187,7 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? 'Нет вопросов'
                           : '$totalQuestions вопр. · $gradeCounts из ${track.grades.length} грейдов заполнены',
                       style: TextStyle(
-                          fontSize: 12, color: cs.onSurfaceVariant),
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -212,11 +225,13 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             const Text('Вопросов пока нет',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 6),
             Text('Направления появятся, когда будут добавлены вопросы.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+            ),
           ],
         ),
       ),
@@ -232,15 +247,19 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.cloud_off_outlined,
-                size: 48, color: cs.onSurfaceVariant),
+              size: 48,
+              color: cs.onSurfaceVariant,
+            ),
             const SizedBox(height: 16),
             const Text('Не удалось загрузить вопросы',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 6),
             Text('Что-то пошло не так. Попробуй ещё раз.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+            ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () {

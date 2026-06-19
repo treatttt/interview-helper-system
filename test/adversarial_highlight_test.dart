@@ -22,7 +22,7 @@ void main() {
           isMultiChoice: combo.isMultiChoice,
         );
         expect(result, isNot(OptionHighlight.wrong),
-            reason: 'isCorrect=T, isPicked=${combo.isPicked}, isMulti=${combo.isMultiChoice}');
+            reason: 'isCorrect=T, isPicked=${combo.isPicked}, isMulti=${combo.isMultiChoice}',);
       }
     });
 
@@ -34,9 +34,9 @@ void main() {
           isMultiChoice: combo.isMultiChoice,
         );
         expect(result, isNot(OptionHighlight.correct),
-            reason: 'isCorrect=F, isPicked=${combo.isPicked}, isMulti=${combo.isMultiChoice}');
+            reason: 'isCorrect=F, isPicked=${combo.isPicked}, isMulti=${combo.isMultiChoice}',);
         expect(result, isNot(OptionHighlight.missed),
-            reason: 'isCorrect=F, isPicked=${combo.isPicked}, isMulti=${combo.isMultiChoice}');
+            reason: 'isCorrect=F, isPicked=${combo.isPicked}, isMulti=${combo.isMultiChoice}',);
       }
     });
 
@@ -48,7 +48,7 @@ void main() {
           isMultiChoice: combo.isMultiChoice,
         );
         expect(result, isNot(OptionHighlight.missed),
-            reason: 'single-choice не должен давать missed');
+            reason: 'single-choice не должен давать missed',);
       }
     });
 
@@ -60,7 +60,7 @@ void main() {
           isMultiChoice: isMulti,
         );
         expect(result, OptionHighlight.neutral,
-            reason: 'isMulti=$isMulti');
+            reason: 'isMulti=$isMulti',);
       }
     });
 
@@ -72,7 +72,7 @@ void main() {
           isMultiChoice: isMulti,
         );
         expect(result, OptionHighlight.wrong,
-            reason: 'isMulti=$isMulti');
+            reason: 'isMulti=$isMulti',);
       }
     });
 
@@ -84,7 +84,7 @@ void main() {
           isMultiChoice: isMulti,
         );
         expect(result, OptionHighlight.correct,
-            reason: 'isMulti=$isMulti');
+            reason: 'isMulti=$isMulti',);
       }
     });
 
@@ -136,9 +136,9 @@ void main() {
     test('переключение isCorrect при picked=true меняет correct↔wrong', () {
       for (final isMulti in [true, false]) {
         final whenCorrect = resolveOptionHighlight(
-            isCorrect: true, isPicked: true, isMultiChoice: isMulti);
+            isCorrect: true, isPicked: true, isMultiChoice: isMulti,);
         final whenWrong = resolveOptionHighlight(
-            isCorrect: false, isPicked: true, isMultiChoice: isMulti);
+            isCorrect: false, isPicked: true, isMultiChoice: isMulti,);
         expect(whenCorrect, OptionHighlight.correct);
         expect(whenWrong, OptionHighlight.wrong);
         expect(whenCorrect, isNot(whenWrong));

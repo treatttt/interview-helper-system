@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
-import '../models/models.dart';
-import '../services/progress_service.dart';
-import '../controllers/session_controller.dart'
+import 'package:interview_helper_system/controllers/session_controller.dart'
     show AnswerOutcome, AnsweredQuestion;
-import 'session_screen.dart';
+import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/screens/session_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
 
 /// Экран грейдов — показывает список Junior/Middle/Senior для выбранного направления.
 class GradesScreen extends StatefulWidget {
-  final Track track;
-  final ProgressService progress;
-
   const GradesScreen({
-    super.key,
     required this.track,
     required this.progress,
+    super.key,
   });
+  final Track track;
+  final ProgressService progress;
 
   @override
   State<GradesScreen> createState() => _GradesScreenState();
@@ -41,8 +40,8 @@ class _GradesScreenState extends State<GradesScreen> {
     }
 
     List<Question> sessionQuestions;
-    int startIndex = 0;
-    List<AnsweredQuestion> previousAnswers = const [];
+    var startIndex = 0;
+    var previousAnswers = const <AnsweredQuestion>[];
 
     final incomplete = widget.progress.loadIncompleteSession(gradeKey);
     if (incomplete != null) {
@@ -74,7 +73,10 @@ class _GradesScreenState extends State<GradesScreen> {
           final outcome =
               AnswerOutcome.values.byName(data['outcome'] as String);
           return AnsweredQuestion(
-              question: q, selected: selected, outcome: outcome);
+            question: q,
+            selected: selected,
+            outcome: outcome,
+          );
         }).toList();
       } else {
         await widget.progress.clearIncompleteSession(gradeKey: gradeKey);
@@ -115,7 +117,8 @@ class _GradesScreenState extends State<GradesScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Незавершённая сессия'),
         content: Text(
-            'Вы остановились на вопросе ${answeredCount + 1} из $sessionTotal.'),
+          'Вы остановились на вопросе ${answeredCount + 1} из $sessionTotal.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop('restart'),
@@ -136,7 +139,8 @@ class _GradesScreenState extends State<GradesScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Сбросить прогресс?'),
         content: Text(
-            'Все вопросы «${grade.title}» снова станут доступны в полном объёме.'),
+          'Все вопросы «${grade.title}» снова станут доступны в полном объёме.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -171,11 +175,14 @@ class _GradesScreenState extends State<GradesScreen> {
               Text(
                 widget.track.description!,
                 style: TextStyle(
-                    fontSize: 14, color: cs.onSurfaceVariant, height: 1.4),
+                  fontSize: 14,
+                  color: cs.onSurfaceVariant,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 20),
             ],
-            ...grades.map((g) => _gradeCard(g)),
+            ...grades.map(_gradeCard),
           ],
         ),
       ),
@@ -222,14 +229,18 @@ class _GradesScreenState extends State<GradesScreen> {
                           Text(
                             grade.title,
                             style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           if (grade.description != null) ...[
                             const SizedBox(height: 2),
                             Text(
                               grade.description!,
                               style: TextStyle(
-                                  fontSize: 12, color: cs.onSurfaceVariant),
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ],
@@ -239,7 +250,9 @@ class _GradesScreenState extends State<GradesScreen> {
                     if (!hasQuestions)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
@@ -247,26 +260,34 @@ class _GradesScreenState extends State<GradesScreen> {
                         child: Text(
                           'Скоро',
                           style: TextStyle(
-                              fontSize: 11, color: cs.onSurfaceVariant),
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     else if (allDone) ...[
                       Text(
                         'Все пройдены',
                         style: TextStyle(
-                            color: cs.onSurfaceVariant, fontSize: 12),
+                          color: cs.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Tooltip(
                         message: 'Пройти заново',
                         child: Icon(Icons.refresh,
-                            size: 18, color: cs.onSurfaceVariant),
+                          size: 18,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ] else ...[
                       Text(
                         '$done/$total',
                         style: TextStyle(
-                            color: cs.onSurfaceVariant, fontSize: 12),
+                          color: cs.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Tooltip(
@@ -274,12 +295,16 @@ class _GradesScreenState extends State<GradesScreen> {
                         child: GestureDetector(
                           onTap: () => _resetGrade(grade),
                           child: Icon(Icons.refresh,
-                              size: 18, color: cs.onSurfaceVariant),
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right,
-                          size: 20, color: cs.onSurfaceVariant),
+                        size: 20,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ],
                   ],
                 ),

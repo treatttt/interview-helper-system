@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 /// Когда ролей станет ≥2 — здесь добавится третья карточка-развилка с выбором
 /// области; сейчас она сознательно не строится (UI под контент, которого нет).
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key, required this.onFinish});
+  const OnboardingScreen({required this.onFinish, super.key});
 
   /// Вызывается при завершении тура (кнопка финала) и при пропуске.
   final VoidCallback onFinish;
@@ -197,7 +197,7 @@ class _OnboardingPage extends StatelessWidget {
             // Медальон-якорь: мягкая подложка из акцента + контурная иконка.
             _Staggered(
               entrance: entrance,
-              begin: 0.0,
+              begin: 0,
               end: 0.55,
               child: ExcludeSemantics(
                 child: Container(

@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
-import '../models/models.dart';
-import '../controllers/session_controller.dart';
-import 'result_screen.dart';
-import '../services/progress_service.dart';
-import '../theme.dart';
-import '../utils/option_highlight.dart';
+import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/screens/result_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/utils/option_highlight.dart';
 
 class SessionScreen extends StatefulWidget {
+  const SessionScreen({
+    required this.track,
+    required this.grade,
+    required this.progress,
+    required this.questions,
+    super.key,
+    this.initialIndex = 0,
+    this.previousAnswers = const [],
+  });
   final Track track;
   final Grade grade;
   final ProgressService progress;
@@ -19,16 +28,6 @@ class SessionScreen extends StatefulWidget {
 
   /// Уже отвеченные вопросы из предыдущей части сессии (для resume).
   final List<AnsweredQuestion> previousAnswers;
-
-  const SessionScreen({
-    super.key,
-    required this.track,
-    required this.grade,
-    required this.progress,
-    required this.questions,
-    this.initialIndex = 0,
-    this.previousAnswers = const [],
-  });
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -77,7 +76,8 @@ class _SessionScreenState extends State<SessionScreen> {
                 'id': a.question.id,
                 'selected': a.selected.toList(),
                 'outcome': a.outcome.name,
-              })
+            },
+          )
           .toList(),
     });
   }
@@ -131,7 +131,9 @@ class _SessionScreenState extends State<SessionScreen> {
                       const SizedBox(height: 20),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Theme.of(context)
                               .colorScheme
@@ -142,9 +144,8 @@ class _SessionScreenState extends State<SessionScreen> {
                           '${widget.track.title} · ${widget.grade.title}',
                           style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -152,18 +153,22 @@ class _SessionScreenState extends State<SessionScreen> {
                         const Padding(
                           padding: EdgeInsets.only(bottom: 6),
                           child: Text('Можно выбрать несколько вариантов',
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 12)),
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
                         ),
                       const SizedBox(height: 6),
                       Text(c.current.text,
                           style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w500,
-                              height: 1.4)),
+                          height: 1.4,
+                        ),
+                      ),
                       const SizedBox(height: 18),
                       ...List.generate(
-                          c.current.options.length, (i) => _optionTile(c, i)),
+                        c.current.options.length,
+                        (i) => _optionTile(c, i),
+                      ),
                       if (c.answered &&
                           c.current.explanation != null &&
                           c.current.explanation!.trim().isNotEmpty) ...[
@@ -178,8 +183,8 @@ class _SessionScreenState extends State<SessionScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(c.current.explanation!,
-                              style:
-                                  const TextStyle(fontSize: 13, height: 1.5)),
+                            style: const TextStyle(fontSize: 13, height: 1.5),
+                          ),
                         ),
                       ],
                     ],
@@ -197,7 +202,8 @@ class _SessionScreenState extends State<SessionScreen> {
                           ? _onNext
                           : (c.selected.isEmpty ? null : c.submit),
                       style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                       child: Text(_buttonLabel(c)),
                     ),
                   ),
@@ -221,9 +227,9 @@ class _SessionScreenState extends State<SessionScreen> {
     final correct = c.current.correctIndexes.contains(i);
     final picked = c.selected.contains(i);
 
-    Color bg = cs.surface;
-    Color border = cs.outlineVariant;
-    Color text = cs.onSurface;
+    var bg = cs.surface;
+    var border = cs.outlineVariant;
+    var text = cs.onSurface;
 
     if (!c.answered) {
       if (picked) {
@@ -268,7 +274,8 @@ class _SessionScreenState extends State<SessionScreen> {
             border: Border.all(color: border),
           ),
           child: Text(c.current.options[i],
-              style: TextStyle(color: text, fontSize: 14)),
+            style: TextStyle(color: text, fontSize: 14),
+          ),
         ),
       ),
     );

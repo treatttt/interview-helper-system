@@ -1,12 +1,5 @@
 /// Вопросы: текст, вариант ответа, индексы правильных
 class Question {
-  final String id;
-  final String text;
-  final List<String> options;
-  final List<int> correctIndexes;
-
-  /// Индексы правильных ответов в options
-  final String? explanation;
 
   const Question({
     required this.id,
@@ -15,6 +8,23 @@ class Question {
     required this.correctIndexes,
     this.explanation,
   });
+
+  /// Ключи должны совпадать с questions.json
+  factory Question.fromJson(Map<String, dynamic> json) => Question(
+        id: json['id'] as String,
+        text: json['text'] as String,
+        options: (json['options'] as List).cast<String>(),
+        correctIndexes:
+            (json['correctIndexes'] as List).map((e) => e as int).toList(),
+        explanation: json['explanation'] as String?,
+      );
+  final String id;
+  final String text;
+  final List<String> options;
+  final List<int> correctIndexes;
+
+  /// Индексы правильных ответов в options
+  final String? explanation;
 
   bool get isMultipleChoice => correctIndexes.length > 1;
 
@@ -28,33 +38,18 @@ class Question {
     }
     return true;
   }
-
-  /// Ключи должны совпадать с questions.json
-  factory Question.fromJson(Map<String, dynamic> json) => Question(
-        id: json['id'] as String,
-        text: json['text'] as String,
-        options: (json['options'] as List).cast<String>(),
-        correctIndexes:
-            (json['correctIndexes'] as List).map((e) => e as int).toList(),
-        explanation: json['explanation'] as String?,
-      );
 }
 
 /// Грейд — уровень подготовки внутри направления (Junior / Middle / Senior).
 /// Содержит вопросы для сессии и метаданные для отображения.
 class Grade {
-  final String id;
-  final String title;
-  final String? description;
-  final int order;
-  final List<Question> questions;
 
   const Grade({
     required this.id,
     required this.title,
-    this.description,
     required this.order,
     required this.questions,
+    this.description,
   });
 
   factory Grade.fromJson(Map<String, dynamic> json) => Grade(
@@ -66,23 +61,22 @@ class Grade {
             .map((e) => Question.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+  final String id;
+  final String title;
+  final String? description;
+  final int order;
+  final List<Question> questions;
 }
 
 /// Направление — верхний уровень группировки (Аналитика, Разработка, Тестирование).
 /// Содержит грейды и метаданные для отображения.
 class Track {
-  final String id;
-  final String title;
-  final String? description;
-  final int order;
-  final List<Grade> grades;
-
   const Track({
     required this.id,
     required this.title,
-    this.description,
     required this.order,
     required this.grades,
+    this.description,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -94,6 +88,11 @@ class Track {
             .map((e) => Grade.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+  final String id;
+  final String title;
+  final String? description;
+  final int order;
+  final List<Grade> grades;
 }
 
 /// Обратная совместимость: Topic — псевдоним Grade для плавного перехода.

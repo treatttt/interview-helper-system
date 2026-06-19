@@ -1,11 +1,15 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:interview_helper_system/controllers/session_controller.dart'
+    show SessionResult;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../controllers/session_controller.dart' show SessionResult;
 
 /// Хранит прогресс пользователя: XP, streak, освоенные вопросы по грейдам,
 /// незавершённую сессию (один слот). Данные переживают перезапуск приложения.
 class ProgressService extends ChangeNotifier {
+  ProgressService({DateTime Function()? clock})
+      : _clock = clock ?? DateTime.now;
   static const _kXp = 'xp';
   static const _kStreak = 'streak';
   static const _kLastDay = 'last_active_day';
@@ -14,8 +18,6 @@ class ProgressService extends ChangeNotifier {
   static const _kOnboardingDone = 'onboarding_done';
 
   final DateTime Function() _clock;
-
-  ProgressService({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   late SharedPreferences _prefs;
 

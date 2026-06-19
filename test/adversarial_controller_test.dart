@@ -3,13 +3,13 @@ import 'package:interview_helper_system/controllers/session_controller.dart';
 import 'package:interview_helper_system/models/models.dart';
 
 Question single(String id) => Question(
-    id: id, text: 'Q', options: ['А', 'Б', 'В'], correctIndexes: const [0]);
+    id: id, text: 'Q', options: ['А', 'Б', 'В'], correctIndexes: const [0],);
 
 Question multi(String id) => Question(
     id: id,
     text: 'Q',
     options: ['А', 'Б', 'В', 'Г'],
-    correctIndexes: const [0, 2]);
+    correctIndexes: const [0, 2],);
 
 void main() {
   // ─── toggle в запрещённых состояниях ───────────────────────────────────────
@@ -43,7 +43,7 @@ void main() {
 
     test('multi-toggle одной опции нечётное число раз = выбрана', () {
       final c = SessionController([multi('q')]);
-      for (int i = 0; i < 7; i++) { c.toggle(0); }
+      for (var i = 0; i < 7; i++) { c.toggle(0); }
       expect(c.selected, {0});
     });
   });
@@ -53,7 +53,7 @@ void main() {
     test('10 submit подряд = один ответ в history', () {
       final c = SessionController([single('q')]);
       c.toggle(0);
-      for (int i = 0; i < 10; i++) { c.submit(); }
+      for (var i = 0; i < 10; i++) { c.submit(); }
       expect(c.result.answers.length, 1);
       expect(c.result.points, 1);
     });
@@ -78,14 +78,14 @@ void main() {
   group('next — нельзя перейти без ответа или за последний вопрос', () {
     test('10 вызовов next без ответа — остаёмся на первом', () {
       final c = SessionController([single('q1'), single('q2')]);
-      for (int i = 0; i < 10; i++) { c.next(); }
+      for (var i = 0; i < 10; i++) { c.next(); }
       expect(c.index, 0);
     });
 
     test('next после last → false, index не выходит за границу', () {
       final c = SessionController([single('q')]);
       c.toggle(0); c.submit();
-      for (int i = 0; i < 5; i++) { expect(c.next(), isFalse); }
+      for (var i = 0; i < 5; i++) { expect(c.next(), isFalse); }
       expect(c.index, 0);
     });
 
@@ -176,9 +176,9 @@ void main() {
     test('resume восстанавливает накопленные счётчики', () {
       final prev = [
         AnsweredQuestion(
-            question: single('q1'), selected: {0}, outcome: AnswerOutcome.correct),
+            question: single('q1'), selected: {0}, outcome: AnswerOutcome.correct,),
         AnsweredQuestion(
-            question: single('q2'), selected: {1}, outcome: AnswerOutcome.wrong),
+            question: single('q2'), selected: {1}, outcome: AnswerOutcome.wrong,),
       ];
       final c = SessionController.resume(
         questions: [single('q1'), single('q2'), single('q3')],
@@ -193,7 +193,7 @@ void main() {
     test('ответы после resume накапливаются поверх восстановленных', () {
       final prev = [
         AnsweredQuestion(
-            question: single('q1'), selected: {0}, outcome: AnswerOutcome.correct),
+            question: single('q1'), selected: {0}, outcome: AnswerOutcome.correct,),
       ];
       final c = SessionController.resume(
         questions: [single('q1'), single('q2')],
@@ -207,10 +207,10 @@ void main() {
 
     test('resume корректно восстанавливает points и maxPoints', () {
       const q2 = Question(
-          id: 'q2', text: 'T', options: ['А', 'Б', 'В'], correctIndexes: [0, 1]);
+          id: 'q2', text: 'T', options: ['А', 'Б', 'В'], correctIndexes: [0, 1],);
       final prev = [
         const AnsweredQuestion(
-            question: q2, selected: {0, 1}, outcome: AnswerOutcome.correct),
+            question: q2, selected: {0, 1}, outcome: AnswerOutcome.correct,),
       ];
       final c = SessionController.resume(
         questions: [q2, single('q3')],
@@ -242,11 +242,11 @@ void main() {
           id: 'q1',
           text: 'T',
           options: ['А', 'Б', 'В'],
-          correctIndexes: [0, 1]);
+          correctIndexes: [0, 1],);
       final prev = [
         // partial: выбрал только [0] из [0,1], hit=1
         const AnsweredQuestion(
-            question: q, selected: {0}, outcome: AnswerOutcome.partial),
+            question: q, selected: {0}, outcome: AnswerOutcome.partial,),
       ];
       final c = SessionController.resume(
         questions: [q, single('q2')],

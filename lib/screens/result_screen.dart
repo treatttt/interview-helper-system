@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
-import '../controllers/session_controller.dart';
-import '../models/models.dart';
-import 'review_screen.dart';
-import '../services/progress_service.dart';
-import '../theme.dart';
+import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/screens/review_screen.dart';
+import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/theme.dart';
 
 class ResultScreen extends StatelessWidget {
-  final SessionResult result;
-  final Track track;
-  final Grade grade;
-  final ProgressService progress;
-
   const ResultScreen({
-    super.key,
     required this.result,
     required this.track,
     required this.grade,
     required this.progress,
+    super.key,
   });
+  final SessionResult result;
+  final Track track;
+  final Grade grade;
+  final ProgressService progress;
 
   @override
   Widget build(BuildContext context) {
@@ -42,15 +41,18 @@ class ResultScreen extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.check_circle_outline,
-                  color: s.successFg, size: 52),
+                color: s.successFg,
+                size: 52,
+              ),
             ),
             const SizedBox(height: 20),
             Text('${result.points} из ${result.maxPoints} баллов',
-                style:
-                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w500)),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 4),
             Text('$pct%',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
+            ),
             const SizedBox(height: 24),
             _statRow('Верно', result.correct, s.successFg),
             _statRow('Частично', result.partial, s.warningFg),
@@ -70,7 +72,8 @@ class ResultScreen extends StatelessWidget {
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
                 child: const Text('Разбор ответов'),
               ),
             ),
@@ -81,7 +84,8 @@ class ResultScreen extends StatelessWidget {
                 onPressed: () =>
                     Navigator.of(context).popUntil((r) => r.isFirst),
                 style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
                 child: const Text('На главный экран'),
               ),
             ),
@@ -105,8 +109,8 @@ class ResultScreen extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 15)),
           const Spacer(),
           Text('$value',
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

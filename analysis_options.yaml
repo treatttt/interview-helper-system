@@ -1,4 +1,31 @@
-include: package:flutter_lints/flutter.yaml
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  plugins:
+    - dart_code_linter
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.gen.dart"
+
 linter:
   rules:
     prefer_const_constructors: true
+
+dart_code_linter:
+  metrics:
+    cyclomatic-complexity: 20
+    number-of-parameters: 4
+    maximum-nesting-level: 5
+    source-lines-of-code: 50
+  metrics-exclude:
+    - test/**
+  rules:
+    - avoid-dynamic
+    - avoid-nested-conditional-expressions
+    - avoid-unused-parameters
+    - no-boolean-literal-compare
+    - no-empty-block
+    - prefer-conditional-expressions
+    - prefer-match-file-name
+    - prefer-trailing-comma

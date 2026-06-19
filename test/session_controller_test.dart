@@ -44,7 +44,7 @@ void main() {
           c.next(); // тут _selected.clear() — выбор первого вопроса должен уцелеть
 
           expect(c.result.answers.first.selected, {0},
-              reason: 'если в записи лежит ссылка на _selected, тут будет пусто');
+              reason: 'если в записи лежит ссылка на _selected, тут будет пусто',);
         });
 
     test('submit без выбора не создаёт запись', () {
@@ -68,7 +68,7 @@ void main() {
 
       expect(c.result.answers.length, 3);
       expect(c.result.answers.map((a) => a.question.id).toList(),
-          ['a', 'b', 'c']);
+          ['a', 'b', 'c'],);
     });
   });
 
@@ -114,9 +114,9 @@ void main() {
 
       final r = c.result;
       expect(r.correct,
-          r.answers.where((a) => a.outcome == AnswerOutcome.correct).length);
+          r.answers.where((a) => a.outcome == AnswerOutcome.correct).length,);
       expect(r.wrong,
-          r.answers.where((a) => a.outcome == AnswerOutcome.wrong).length);
+          r.answers.where((a) => a.outcome == AnswerOutcome.wrong).length,);
     });
   });
 }

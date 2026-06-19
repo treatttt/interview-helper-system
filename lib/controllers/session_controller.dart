@@ -1,21 +1,31 @@
 import 'package:flutter/foundation.dart';
-import '../models/models.dart';
+import 'package:interview_helper_system/models/models.dart';
 
 enum AnswerOutcome { correct, partial, wrong }
 
 class AnsweredQuestion {
-  final Question question;
-  final Set<int> selected;
-  final AnswerOutcome outcome;
   const AnsweredQuestion({
     required this.question,
     required this.selected,
     required this.outcome,
   });
+
+  final Question question;
+  final Set<int> selected;
+  final AnswerOutcome outcome;
 }
 
 /// Разбивка вопросов по категориям и итоговые баллы
 class SessionResult {
+  const SessionResult({
+    required this.correct,
+    required this.partial,
+    required this.wrong,
+    required this.points,
+    required this.maxPoints,
+    required this.answers,
+    this.correctIds = const {},
+  });
   final int correct;
   final int partial;
   final int wrong;
@@ -26,21 +36,10 @@ class SessionResult {
   /// ID вопросов, отвеченных верно в этой сессии.
   /// Используется ProgressService для обновления множества освоенных вопросов.
   final Set<String> correctIds;
-
-  const SessionResult({
-    required this.correct,
-    required this.partial,
-    required this.wrong,
-    required this.points,
-    required this.maxPoints,
-    required this.answers,
-    this.correctIds = const {},
-  });
 }
 
 /// Управляет прохождением одной сессии вопросов.
 class SessionController extends ChangeNotifier {
-  final List<Question> _questions;
 
   SessionController(this._questions)
       : assert(_questions.isNotEmpty, 'Сессия требует хотя бы один вопрос');
@@ -61,17 +60,16 @@ class SessionController extends ChangeNotifier {
       switch (a.outcome) {
         case AnswerOutcome.correct:
           _correct++;
-          break;
         case AnswerOutcome.partial:
           _partial++;
-          break;
         case AnswerOutcome.wrong:
           _wrong++;
-          break;
       }
       _answers.add(a);
     }
   }
+
+  final List<Question> _questions;
 
   int _index = 0;
   final Set<int> _selected = {};
@@ -132,7 +130,8 @@ class SessionController extends ChangeNotifier {
       question: current,
       selected: {..._selected},
       outcome: outcome,
-    ));
+      ),
+    );
 
     _answered = true;
     notifyListeners();
