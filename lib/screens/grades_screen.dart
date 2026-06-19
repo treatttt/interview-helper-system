@@ -25,92 +25,79 @@ class _GradesScreenState extends State<GradesScreen> {
   Future<void> _openSession(Grade grade) async {
     if (_opening) return;
     _opening = true;
+    try {
+      final trackId = widget.track.id;
+      final gradeId = grade.id;
+      final gradeKey = '${trackId}_$gradeId';
 
-    final trackId = widget.track.id;
-    final gradeId = grade.id;
-    final gradeKey = '${trackId}_$gradeId';
+      final mastered = widget.progress.masteredIds(trackId, gradeId);
+      final remaining =
+      grade.questions.where((q) => !mastered.contains(q.id)).toList();
 
-    final mastered = widget.progress.masteredIds(trackId, gradeId);
-    final remaining =
-        grade.questions.where((q) => !mastered.contains(q.id)).toList();
+      if (remaining.isEmpty) return;
 
-    if (remaining.isEmpty) {
-      _opening = false;
-      return;
-    }
+      List<Question> sessionQuestions;
+      var startIndex = 0;
+      var previousAnswers = const <AnsweredQuestion>[];
 
-    List<Question> sessionQuestions;
-    var startIndex = 0;
-    var previousAnswers = const <AnsweredQuestion>[];
+      final incomplete = widget.progress.loadIncompleteSession(gradeKey);
+      if (incomplete != null) {
+        if (!mounted) return;
+        final choice = await _showResumeDialog(incomplete);
+        if (!mounted) return;
 
-    final incomplete = widget.progress.loadIncompleteSession(gradeKey);
-    if (incomplete != null) {
-      if (!mounted) {
-        _opening = false;
-        return;
-      }
-      final choice = await _showResumeDialog(incomplete);
-      if (!mounted) {
-        _opening = false;
-        return;
-      }
-
-      if (choice == 'continue') {
-        final questionIds =
-            (incomplete['questionIds'] as List).cast<String>();
-        final questionMap = {for (final q in grade.questions) q.id: q};
-        sessionQuestions = questionIds
-            .map((id) => questionMap[id])
-            .whereType<Question>()
-            .toList();
-        startIndex = incomplete['currentIndex'] as int;
-        final rawAnswers =
-            (incomplete['answeredData'] as List).cast<Map<String, dynamic>>();
-        previousAnswers = rawAnswers.map((data) {
-          final q = questionMap[data['id'] as String]!;
-          final selected =
-              (data['selected'] as List).cast<int>().toSet();
-          final outcome =
-              AnswerOutcome.values.byName(data['outcome'] as String);
-          return AnsweredQuestion(
-            question: q,
-            selected: selected,
-            outcome: outcome,
-          );
-        }).toList();
+        if (choice == 'continue') {
+          final questionIds =
+          (incomplete['questionIds'] as List).cast<String>();
+          final questionMap = {for (final q in grade.questions) q.id: q};
+          sessionQuestions = questionIds
+              .map((id) => questionMap[id])
+              .whereType<Question>()
+              .toList();
+          startIndex = incomplete['currentIndex'] as int;
+          final rawAnswers =
+          (incomplete['answeredData'] as List).cast<Map<String, dynamic>>();
+          previousAnswers = rawAnswers.map((data) {
+            final q = questionMap[data['id'] as String]!;
+            final selected = (data['selected'] as List).cast<int>().toSet();
+            final outcome =
+            AnswerOutcome.values.byName(data['outcome'] as String);
+            return AnsweredQuestion(
+              question: q,
+              selected: selected,
+              outcome: outcome,
+            );
+          }).toList();
+        } else {
+          await widget.progress.clearIncompleteSession(gradeKey: gradeKey);
+          sessionQuestions = remaining;
+        }
       } else {
-        await widget.progress.clearIncompleteSession(gradeKey: gradeKey);
         sessionQuestions = remaining;
       }
-    } else {
-      sessionQuestions = remaining;
-    }
 
-    if (!mounted) {
-      _opening = false;
-      return;
-    }
+      if (!mounted) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SessionScreen(
-          track: widget.track,
-          grade: grade,
-          questions: sessionQuestions,
-          progress: widget.progress,
-          initialIndex: startIndex,
-          previousAnswers: previousAnswers,
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SessionScreen(
+            track: widget.track,
+            grade: grade,
+            questions: sessionQuestions,
+            progress: widget.progress,
+            initialIndex: startIndex,
+            previousAnswers: previousAnswers,
+          ),
         ),
-      ),
-    );
-    _opening = false;
+      );
+    } finally {
+      _opening = false;
+    }
   }
 
   Future<String?> _showResumeDialog(Map<String, dynamic> incomplete) {
-    final answeredCount =
-        (incomplete['answeredData'] as List).length;
-    final sessionTotal =
-        (incomplete['questionIds'] as List).length;
+    final answeredCount = (incomplete['answeredData'] as List).length;
+    final sessionTotal = (incomplete['questionIds'] as List).length;
 
     return showDialog<String>(
       context: context,
@@ -198,12 +185,16 @@ class _GradesScreenState extends State<GradesScreen> {
     final allDone = hasQuestions && done >= total;
     final pct = total == 0 ? 0.0 : done / total;
 
+    final onTap = switch ((hasQuestions, allDone)) {
+      (false, _) => null,
+      (true, true) => () => _resetGrade(grade),
+      (true, false) => () => _openSession(grade),
+    };
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
-        onTap: hasQuestions
-            ? (allDone ? () => _resetGrade(grade) : () => _openSession(grade))
-            : null,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Opacity(
           opacity: hasQuestions ? 1.0 : 0.5,
@@ -276,7 +267,8 @@ class _GradesScreenState extends State<GradesScreen> {
                       const SizedBox(width: 4),
                       Tooltip(
                         message: 'Пройти заново',
-                        child: Icon(Icons.refresh,
+                        child: Icon(
+                          Icons.refresh,
                           size: 18,
                           color: cs.onSurfaceVariant,
                         ),
@@ -294,14 +286,16 @@ class _GradesScreenState extends State<GradesScreen> {
                         message: 'Сбросить прогресс',
                         child: GestureDetector(
                           onTap: () => _resetGrade(grade),
-                          child: Icon(Icons.refresh,
+                          child: Icon(
+                            Icons.refresh,
                             size: 18,
                             color: cs.onSurfaceVariant,
                           ),
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.chevron_right,
+                      Icon(
+                        Icons.chevron_right,
                         size: 20,
                         color: cs.onSurfaceVariant,
                       ),
