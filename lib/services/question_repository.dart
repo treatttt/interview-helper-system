@@ -11,6 +11,12 @@ abstract class QuestionRepository {
 }
 
 class JsonQuestionRepository implements QuestionRepository {
+  int _discardedCount = 0;
+
+  /// Число элементов, отброшенных в ходе последнего вызова [parseTracks].
+  @visibleForTesting
+  int get lastDiscardedCount => _discardedCount;
+
   @override
   Future<List<Track>> loadTracks() async {
     final raw = await rootBundle.loadString('assets/data/questions.json');
@@ -19,6 +25,7 @@ class JsonQuestionRepository implements QuestionRepository {
 
   @visibleForTesting
   List<Track> parseTracks(String raw) {
+    _discardedCount = 0;
     final decoded = json.decode(raw);
     if (decoded is! Map<String, dynamic> || decoded['tracks'] is! List) {
       throw const FormatException('Ожидался объект с ключом tracks');
@@ -28,13 +35,22 @@ class JsonQuestionRepository implements QuestionRepository {
       final track = _parseTrack(rawTrack);
       if (track != null) tracks.add(track);
     }
+    if (kDebugMode && _discardedCount > 0) {
+      debugPrint(
+        'JsonQuestionRepository: отброшено $_discardedCount невалидных '
+        'элементов — проверь questions.json',
+      );
+    }
     return tracks;
   }
 
   /// Разбирает направление. Невалидные вопросы внутри грейдов отсеиваются.
   Track? _parseTrack(dynamic raw) {
     try {
-      if (raw is! Map<String, dynamic>) return null;
+      if (raw is! Map<String, dynamic>) {
+        _discardedCount++;
+        return null;
+      }
 
       final grades = <Grade>[];
       final rawGrades = raw['grades'];
@@ -54,6 +70,7 @@ class JsonQuestionRepository implements QuestionRepository {
       );
     } catch (e) {
       debugPrint('Пропущено битое направление: $e');
+      _discardedCount++;
       return null;
     }
   }
@@ -61,7 +78,10 @@ class JsonQuestionRepository implements QuestionRepository {
   /// Разбирает грейд. Невалидные вопросы отсеиваются, грейд остаётся.
   Grade? _parseGrade(dynamic raw) {
     try {
-      if (raw is! Map<String, dynamic>) return null;
+      if (raw is! Map<String, dynamic>) {
+        _discardedCount++;
+        return null;
+      }
 
       final questions = <Question>[];
       final rawQuestions = raw['questions'];
@@ -81,6 +101,7 @@ class JsonQuestionRepository implements QuestionRepository {
       );
     } catch (e) {
       debugPrint('Пропущен битый грейд: $e');
+      _discardedCount++;
       return null;
     }
   }
@@ -88,15 +109,20 @@ class JsonQuestionRepository implements QuestionRepository {
   /// Разбирает и проверяет вопрос. Возвращает null, если он битый или невалидный.
   Question? _parseQuestion(dynamic raw) {
     try {
-      if (raw is! Map<String, dynamic>) return null;
+      if (raw is! Map<String, dynamic>) {
+        _discardedCount++;
+        return null;
+      }
       final q = Question.fromJson(raw);
       if (!q.isValid) {
         debugPrint('Пропущен невалидный вопрос: ${raw['id']}');
+        _discardedCount++;
         return null;
       }
       return q;
     } catch (e) {
       debugPrint('Пропущен битый вопрос: $e');
+      _discardedCount++;
       return null;
     }
   }

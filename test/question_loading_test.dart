@@ -171,6 +171,35 @@ void main() {
       expect(tracks, hasLength(1));
       expect(tracks.single.grades.single.questions, isEmpty);
     });
+
+    test('lastDiscardedCount фиксирует невалидный вопрос', () {
+      final r = JsonQuestionRepository();
+      final raw = _bank([
+        _trackJson(grades: [
+          _gradeJson(questions: [
+            _questionJson(id: 'ok'),
+            _questionJson(
+              id: 'bad',
+              options: const ['A', 'B'],
+              correctIndexes: const [99],
+            ),
+          ],),
+        ],),
+      ]);
+      r.parseTracks(raw);
+      expect(r.lastDiscardedCount, 1);
+    });
+
+    test('lastDiscardedCount равен 0 для полностью валидного банка', () {
+      final r = JsonQuestionRepository();
+      final raw = _bank([
+        _trackJson(grades: [
+          _gradeJson(questions: [_questionJson()]),
+        ],),
+      ]);
+      r.parseTracks(raw);
+      expect(r.lastDiscardedCount, 0);
+    });
   });
 
   // ── 3. Состояния экрана ────────────────────────────────────────────────────

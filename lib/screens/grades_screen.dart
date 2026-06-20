@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart'
     show AnswerOutcome, AnsweredQuestion;
+import 'package:interview_helper_system/models/incomplete_session.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
@@ -40,28 +41,24 @@ class _GradesScreenState extends State<GradesScreen> {
       var startIndex = 0;
       var previousAnswers = const <AnsweredQuestion>[];
 
-      final incomplete = widget.progress.loadIncompleteSession(gradeKey);
-      if (incomplete != null) {
+      final incompleteRaw = widget.progress.loadIncompleteSession(gradeKey);
+      if (incompleteRaw != null) {
+        final incomplete = IncompleteSession.fromJson(incompleteRaw);
         if (!mounted) return;
         final choice = await _showResumeDialog(incomplete);
         if (!mounted) return;
 
         if (choice == 'continue') {
-          final questionIds =
-          (incomplete['questionIds'] as List).cast<String>();
           final questionMap = {for (final q in grade.questions) q.id: q};
-          sessionQuestions = questionIds
+          sessionQuestions = incomplete.questionIds
               .map((id) => questionMap[id])
               .whereType<Question>()
               .toList();
-          startIndex = incomplete['currentIndex'] as int;
-          final rawAnswers =
-          (incomplete['answeredData'] as List).cast<Map<String, dynamic>>();
-          previousAnswers = rawAnswers.map((data) {
-            final q = questionMap[data['id'] as String]!;
-            final selected = (data['selected'] as List).cast<int>().toSet();
-            final outcome =
-            AnswerOutcome.values.byName(data['outcome'] as String);
+          startIndex = incomplete.currentIndex;
+          previousAnswers = incomplete.answeredData.map((data) {
+            final q = questionMap[data.id]!;
+            final selected = data.selected.toSet();
+            final outcome = AnswerOutcome.values.byName(data.outcome);
             return AnsweredQuestion(
               question: q,
               selected: selected,
@@ -95,9 +92,9 @@ class _GradesScreenState extends State<GradesScreen> {
     }
   }
 
-  Future<String?> _showResumeDialog(Map<String, Object?> incomplete) {
-    final answeredCount = (incomplete['answeredData']! as List).length;
-    final sessionTotal = (incomplete['questionIds']! as List).length;
+  Future<String?> _showResumeDialog(IncompleteSession incomplete) {
+    final answeredCount = incomplete.answeredData.length;
+    final sessionTotal = incomplete.questionIds.length;
 
     return showDialog<String>(
       context: context,

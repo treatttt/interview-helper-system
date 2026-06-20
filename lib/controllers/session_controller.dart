@@ -53,11 +53,10 @@ class SessionController extends ChangeNotifier {
         _questions = questions {
     _index = startIndex;
     for (final a in previousAnswers) {
-      final correctSet = a.question.correctIndexes.toSet();
-      final hit = a.selected.intersection(correctSet).length;
-      _points += hit;
-      _maxPoints += correctSet.length;
-      switch (a.outcome) {
+      final score = _scoreAnswer(a.selected, a.question.correctIndexes);
+      _points += score.hit;
+      _maxPoints += score.total;
+      switch (score.outcome) {
         case AnswerOutcome.correct:
           _correct++;
         case AnswerOutcome.partial:
@@ -92,6 +91,23 @@ class SessionController extends ChangeNotifier {
   /// Все уже данные ответы (для сериализации незавершённой сессии).
   List<AnsweredQuestion> get answers => List.unmodifiable(_answers);
 
+  static ({AnswerOutcome outcome, int hit, int total}) _scoreAnswer(
+    Set<int> selected,
+    List<int> correctIndexes,
+  ) {
+    final correctSet = correctIndexes.toSet();
+    final hit = selected.intersection(correctSet).length;
+    final AnswerOutcome outcome;
+    if (selected.length == correctSet.length && hit == correctSet.length) {
+      outcome = AnswerOutcome.correct;
+    } else if (hit > 0) {
+      outcome = AnswerOutcome.partial;
+    } else {
+      outcome = AnswerOutcome.wrong;
+    }
+    return (outcome: outcome, hit: hit, total: correctSet.length);
+  }
+
   void toggle(int option) {
     if (_answered) return;
     if (current.isMultipleChoice) {
@@ -108,31 +124,22 @@ class SessionController extends ChangeNotifier {
 
   void submit() {
     if (_answered || _selected.isEmpty) return;
-    final correctSet = current.correctIndexes.toSet();
-    final hit = _selected.intersection(correctSet).length;
-
-    _points += hit;
-    _maxPoints += correctSet.length;
-
-    final AnswerOutcome outcome;
-    if (_selected.length == correctSet.length && hit == correctSet.length) {
-      _correct++;
-      outcome = AnswerOutcome.correct;
-    } else if (hit > 0) {
-      _partial++;
-      outcome = AnswerOutcome.partial;
-    } else {
-      _wrong++;
-      outcome = AnswerOutcome.wrong;
+    final score = _scoreAnswer({..._selected}, current.correctIndexes);
+    _points += score.hit;
+    _maxPoints += score.total;
+    switch (score.outcome) {
+      case AnswerOutcome.correct:
+        _correct++;
+      case AnswerOutcome.partial:
+        _partial++;
+      case AnswerOutcome.wrong:
+        _wrong++;
     }
-
     _answers.add(AnsweredQuestion(
       question: current,
       selected: {..._selected},
-      outcome: outcome,
-      ),
-    );
-
+      outcome: score.outcome,
+    ),);
     _answered = true;
     notifyListeners();
   }

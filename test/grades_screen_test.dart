@@ -254,6 +254,7 @@ void main() {
             (tester) async {
           when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
           when(() => progress.loadIncompleteSession('t1_g1')).thenReturn({
+            'gradeKey': 't1_g1',
             'questionIds': ['q1', 'q2'],
             'currentIndex': 0,
             'answeredData': <Map<String, dynamic>>[],
@@ -277,6 +278,7 @@ void main() {
           when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
           // Empty answeredData keeps us off the AnswerOutcome.byName parse (see note).
           when(() => progress.loadIncompleteSession('t1_g1')).thenReturn({
+            'gradeKey': 't1_g1',
             'questionIds': ['q1', 'q2'],
             'currentIndex': 0,
             'answeredData': <Map<String, dynamic>>[],

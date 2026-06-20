@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/incomplete_session.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/result_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
@@ -66,19 +67,21 @@ class _SessionScreenState extends State<SessionScreen> {
     // Сохраняем только если хотя бы один вопрос отвечен и сессия не завершена.
     if (c.answers.isEmpty || c.answers.length >= c.total) return;
 
-    widget.progress.saveIncompleteSessionSync({
-      'gradeKey': '${widget.track.id}_${widget.grade.id}',
-      'questionIds': widget.questions.map((q) => q.id).toList(),
-      'currentIndex': c.answers.length,
-      'answeredData': c.answers
-          .map((a) => {
-                'id': a.question.id,
-                'selected': a.selected.toList(),
-                'outcome': a.outcome.name,
-            },
+    final session = IncompleteSession(
+      gradeKey: '${widget.track.id}_${widget.grade.id}',
+      questionIds: widget.questions.map((q) => q.id).toList(),
+      currentIndex: c.answers.length,
+      answeredData: c.answers
+          .map(
+            (a) => AnsweredItemData(
+              id: a.question.id,
+              selected: a.selected.toList(),
+              outcome: a.outcome.name,
+            ),
           )
           .toList(),
-    });
+    );
+    widget.progress.saveIncompleteSessionSync(session.toJson());
   }
 
   void _onNext() {

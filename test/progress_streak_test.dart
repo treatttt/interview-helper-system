@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
-// ⚠️ имя пакета подставь как в твоих остальных тестах (поле name из pubspec.yaml)
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
