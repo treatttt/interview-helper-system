@@ -161,12 +161,13 @@ class _ThemeSection extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: cs.surface,
+        Material(
+          color: cs.surface,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: cs.outlineVariant),
+            side: BorderSide(color: cs.outlineVariant),
           ),
+          clipBehavior: Clip.antiAlias,
           child: RadioGroup<ThemeMode>(
             groupValue: themeService.mode,
             onChanged: (m) {
@@ -190,6 +191,7 @@ class _ThemeSection extends StatelessWidget {
             ),
           ),
         ),
+
       ],
     );
   }

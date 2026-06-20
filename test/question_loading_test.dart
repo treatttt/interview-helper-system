@@ -6,7 +6,6 @@ import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
-import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -184,14 +183,11 @@ void main() {
     Future<Widget> homeUnder(QuestionRepository repo) async {
       final progress = ProgressService();
       await progress.init();
-      final themeService = ThemeService();
-      await themeService.init();
       return MaterialApp(
         theme: buildLightTheme(),
         home: HomeScreen(
           repository: repo,
           progress: progress,
-          themeService: themeService,
         ),
       );
     }
