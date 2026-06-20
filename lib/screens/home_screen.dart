@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
+import 'package:interview_helper_system/screens/grades_screen.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
@@ -136,6 +137,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           _metricsRow(),
                           const SizedBox(height: 20),
                           _bodySection(),
+                          if (_tracks.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            _sectionLabel('Направления'),
+                            const SizedBox(height: 8),
+                            ..._tracks.map(_trackCard),
+                          ],
                         ],
                       ),
                     ),
@@ -310,6 +317,89 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: cs.surfaceContainerHighest,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Направления ──────────────────────────────────────────────────────────
+
+  Widget _sectionLabel(String text) {
+    final cs = Theme.of(context).colorScheme;
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: cs.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _trackCard(Track track) {
+    final cs = Theme.of(context).colorScheme;
+    final totalQuestions =
+        track.grades.fold<int>(0, (sum, g) => sum + g.questions.length);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => GradesScreen(
+              track: track,
+              progress: widget.progress,
+            ),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (track.description != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        track.description!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      totalQuestions == 0
+                          ? 'Нет вопросов'
+                          : '$totalQuestions вопр.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
             ],
           ),
         ),
