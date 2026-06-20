@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
+import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/theme.dart';
@@ -21,71 +22,46 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  List<Track> _tracks = [];
-  bool _loading = true;
-  String? _error;
+class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
+  @override
+  QuestionRepository get repository => widget.repository;
 
   @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    try {
-      final tracks = await widget.repository.loadTracks();
-      if (!mounted) return;
-      setState(() {
-        _tracks = tracks.toList()..sort((a, b) => a.order.compareTo(b.order));
-        _loading = false;
-      });
-    } on Object {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Не удалось загрузить вопросы';
-        _loading = false;
-      });
-    }
-  }
+  String get loadErrorMessage => 'Не удалось загрузить вопросы';
 
   // ── Navigation helpers ──────────────────────────────────────────────────
 
   void _openRecommendedSession() {
-    if (_tracks.isEmpty) return;
-    // Weakest topic → find the track that contains it; fallback to first track
-    // with remaining questions.
+    if (tracks.isEmpty) return;
+
     final weak = widget.progress.weakestTopics(limit: 1);
-    if (weak.isNotEmpty) {
-      final topicTitle = weak.first.title;
-      for (final track in _tracks) {
-        final grades = [...track.grades]
-          ..sort((a, b) => a.order.compareTo(b.order));
-        for (final grade in grades) {
-          final mastered = widget.progress.masteredIds(track.id, grade.id);
-          final has = grade.questions
-              .any((q) => q.topic == topicTitle && !mastered.contains(q.id));
-          if (has) {
-            _pushGrades(track);
-            return;
-          }
-        }
-      }
-    }
-    // Fallback: first track with unmastered questions.
-    for (final track in _tracks) {
+    final topicTitle = weak.isNotEmpty ? weak.first.title : null;
+
+    // 1) Слабая тема, если по ней есть непройденные вопросы.
+    final byTopic = topicTitle == null
+        ? null
+        : _firstTrackWithUnmastered((q) => q.topic == topicTitle);
+    // 2) Иначе — первый трек с любыми непройденными вопросами.
+    final target = byTopic ?? _firstTrackWithUnmastered((_) => true);
+
+    // 3) Всё освоено — открываем первый трек.
+    _pushGrades(target ?? tracks.first);
+  }
+
+  /// Первый трек (по порядку грейдов), где есть непройденный вопрос,
+  /// удовлетворяющий [test]. Возвращает null, если такого трека нет.
+  Track? _firstTrackWithUnmastered(bool Function(Question) test) {
+    for (final track in tracks) {
       final grades = [...track.grades]
         ..sort((a, b) => a.order.compareTo(b.order));
       for (final grade in grades) {
         final mastered = widget.progress.masteredIds(track.id, grade.id);
-        if (grade.questions.any((q) => !mastered.contains(q.id))) {
-          _pushGrades(track);
-          return;
-        }
+        final hit =
+            grade.questions.any((q) => test(q) && !mastered.contains(q.id));
+        if (hit) return track;
       }
     }
-    // All mastered — open first track anyway.
-    _pushGrades(_tracks.first);
+    return null;
   }
 
   /// Тык по слабой теме → сессия из непройденных вопросов именно этой темы.
@@ -94,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// у обычной сессии. Тема может встречаться в нескольких грейдах — остаток
   /// всплывёт при следующем заходе.
   void _openWeakTopic(String topicTitle) {
-    for (final track in _tracks) {
+    for (final track in tracks) {
       final grades = [...track.grades]
         ..sort((a, b) => a.order.compareTo(b.order));
       for (final grade in grades) {
@@ -158,8 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Обзор', style: TextStyle(fontWeight: FontWeight.w500)),
       ),
-      body: _error != null
-          ? _errorView()
+      body: error != null
+          ? ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad)
           : ListenableBuilder(
               listenable: widget.progress,
               builder: (context, _) => ListView(
@@ -173,13 +149,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 28),
                   _tracksSectionHeader(),
                   const SizedBox(height: 8),
-                  if (_loading)
+                  if (loading)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else
-                    ..._tracks.map(_trackRow),
+                    ...tracks.map(_trackRow),
                 ],
               ),
             ),
@@ -276,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: _loading ? null : _openRecommendedSession,
+        onPressed: loading ? null : _openRecommendedSession,
         child: Text(label),
       ),
     );
@@ -337,44 +313,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Error ────────────────────────────────────────────────────────────────
-
-  Widget _errorView() {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_outlined, size: 48, color: cs.onSurfaceVariant),
-            const SizedBox(height: 16),
-            const Text(
-              'Не удалось загрузить вопросы',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Что-то пошло не так. Попробуй ещё раз.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () {
-                setState(() {
-                  _error = null;
-                  _loading = true;
-                });
-                unawaited(_load());
-              },
-              child: const Text('Попробовать снова'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _sectionLabel(String text) {
     final cs = Theme.of(context).colorScheme;
