@@ -7,6 +7,7 @@ class Question {
     required this.options,
     required this.correctIndexes,
     this.explanation,
+    this.topic,
   });
 
   /// Ключи должны совпадать с questions.json
@@ -17,14 +18,16 @@ class Question {
         correctIndexes:
             (json['correctIndexes'] as List).map((e) => e as int).toList(),
         explanation: json['explanation'] as String?,
+        topic: json['topic'] as String?,
       );
   final String id;
   final String text;
   final List<String> options;
   final List<int> correctIndexes;
-
-  /// Индексы правильных ответов в options
   final String? explanation;
+
+  /// Тематическая метка вопроса (напр. «SQL», «ООП»). Используется для метрик дашборда.
+  final String? topic;
 
   bool get isMultipleChoice => correctIndexes.length > 1;
 

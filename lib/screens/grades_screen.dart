@@ -95,9 +95,9 @@ class _GradesScreenState extends State<GradesScreen> {
     }
   }
 
-  Future<String?> _showResumeDialog(Map<String, dynamic> incomplete) {
-    final answeredCount = (incomplete['answeredData'] as List).length;
-    final sessionTotal = (incomplete['questionIds'] as List).length;
+  Future<String?> _showResumeDialog(Map<String, Object?> incomplete) {
+    final answeredCount = (incomplete['answeredData']! as List).length;
+    final sessionTotal = (incomplete['questionIds']! as List).length;
 
     return showDialog<String>(
       context: context,

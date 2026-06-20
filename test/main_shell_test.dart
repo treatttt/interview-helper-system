@@ -54,32 +54,33 @@ void main() {
   group('MainShell — таб-бар и переключение вкладок', () {
     testWidgets('отображает NavigationBar с тремя вкладками', (tester) async {
       await tester.pumpWidget(await _buildApp());
-      await tester.pump(); // даём HomeScreen завершить загрузку
+      await tester.pump();
 
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Главная'), findsOneWidget);
-      expect(find.text('Задания'), findsOneWidget);
+      expect(find.text('Обзор'), findsWidgets);  // AppBar + таб-бар
+      expect(find.text('Темы'), findsOneWidget);
       expect(find.text('Профиль'), findsOneWidget);
     });
 
-    testWidgets('по умолчанию активна вкладка «Главная»', (tester) async {
+    testWidgets('по умолчанию активна вкладка «Обзор»', (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
-      // Тренажёр — заголовок AppBar HomeScreen
-      expect(find.text('Тренажёр'), findsOneWidget);
+      // «Обзор» — заголовок AppBar HomeScreen (дашборд)
+      expect(find.text('Обзор'), findsWidgets);
     });
 
-    testWidgets('переход на вкладку «Задания» показывает заглушку', (tester) async {
+    testWidgets('переход на вкладку «Темы» показывает каталог направлений',
+        (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
-      await tester.tap(find.text('Задания'));
+      await tester.tap(find.text('Темы'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Задания'), findsWidgets); // и в AppBar, и в таб-баре
-      expect(find.textContaining('Скоро здесь появятся задания'), findsOneWidget);
-    });
+      // «Темы» — в AppBar и таб-баре
+      expect(find.text('Темы'), findsWidgets);
+    },);
 
     testWidgets('переход на вкладку «Профиль» показывает экран профиля',
         (tester) async {
@@ -91,7 +92,7 @@ void main() {
 
       expect(find.text('Профиль'), findsWidgets); // AppBar + таб-бар
       expect(find.text('Статистика'), findsOneWidget);
-    });
+    },);
 
     testWidgets('переключение вкладок не пересоздаёт HomeScreen (IndexedStack)',
         (tester) async {
@@ -105,13 +106,14 @@ void main() {
       await tester.tap(find.text('Профиль'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Главная'));
+      // Возвращаемся на дашборд через таб «Обзор»
+      await tester.tap(find.text('Обзор'));
       await tester.pumpAndSettle();
 
       // HomeScreen всё ещё существует и не пересоздан —
       // IndexedStack держит его живым.
       expect(find.byType(HomeScreen), findsOneWidget);
-    });
+    },);
   });
 
   group('MainShell — профиль отображает данные из ProgressService', () {

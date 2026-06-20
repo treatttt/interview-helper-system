@@ -206,11 +206,14 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('пустой список треков → «Вопросов пока нет»', (tester) async {
+    testWidgets('пустой список треков → дашборд рендерится, список треков пуст',
+        (tester) async {
       await tester.pumpWidget(await homeUnder(_FakeRepo.data(const [])));
       await tester.pumpAndSettle();
-      expect(find.text('Вопросов пока нет'), findsOneWidget);
-    });
+      // Дашборд отображает секцию направлений и CTA даже при пустом списке.
+      expect(find.text('Все направления'), findsOneWidget);
+      expect(find.text('Начать тренировку'), findsOneWidget);
+    },);
 
     testWidgets('есть треки → список отображается', (tester) async {
       final tracks = [

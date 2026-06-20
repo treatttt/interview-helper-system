@@ -2,11 +2,31 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart'
-    show SessionResult;
+    show AnswerOutcome, SessionResult;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Статистика пользователя по одной теме (для дашборда).
+class TopicStat {
+  const TopicStat({
+    required this.title,
+    required this.attempts,
+    required this.correct,
+  });
+  final String title;
+  final int attempts;
+  final int correct;
+  double get accuracy => attempts == 0 ? 0.0 : correct / attempts;
+}
+
+class _TopicCount {
+  _TopicCount(this.attempts, this.correct);
+  int attempts;
+  int correct;
+}
+
 /// Хранит прогресс пользователя: XP, streak, освоенные вопросы по грейдам,
-/// незавершённую сессию (один слот). Данные переживают перезапуск приложения.
+/// статистику ответов по темам, незавершённую сессию (один слот).
+/// Данные переживают перезапуск приложения.
 class ProgressService extends ChangeNotifier {
   ProgressService({DateTime Function()? clock})
       : _clock = clock ?? DateTime.now;
@@ -16,6 +36,7 @@ class ProgressService extends ChangeNotifier {
   static const _kMasteredIds = 'mastered_ids'; // Map<gradeKey, List<questionId>>
   static const _kIncompleteSession = 'incomplete_session';
   static const _kOnboardingDone = 'onboarding_done';
+  static const _kTopicStats = 'topic_stats'; // Map<topic, {attempts, correct}>
 
   final DateTime Function() _clock;
 
@@ -25,8 +46,9 @@ class ProgressService extends ChangeNotifier {
   int _streak = 0;
   String? _lastActiveDay;
   Map<String, Set<String>> _masteredIds = {}; // gradeKey → Set<questionId>
-  Map<String, dynamic>? _incompleteSession;
+  Map<String, Object?>? _incompleteSession;
   bool _onboardingDone = false;
+  Map<String, _TopicCount> _topicStats = {}; // topic → counts
 
   int get xp => _xp;
   int get streak => _streak;
@@ -36,6 +58,34 @@ class ProgressService extends ChangeNotifier {
   /// Суммарное количество освоенных вопросов по всем грейдам.
   int get totalMastered =>
       _masteredIds.values.fold(0, (sum, ids) => sum + ids.length);
+
+  /// Общая точность по всем темам (0..1). Возвращает 0, если попыток нет.
+  double get overallAccuracy {
+    var totalAttempts = 0;
+    var totalCorrect = 0;
+    for (final c in _topicStats.values) {
+      totalAttempts += c.attempts;
+      totalCorrect += c.correct;
+    }
+    return totalAttempts == 0 ? 0.0 : totalCorrect / totalAttempts;
+  }
+
+  /// Топ-N самых слабых тем среди тех, где ≥ [minAttempts] попыток.
+  /// Отсортированы по точности по возрастанию (сначала слабейшие).
+  List<TopicStat> weakestTopics({int limit = 3, int minAttempts = 3}) {
+    final stats = _topicStats.entries
+        .where((e) => e.value.attempts >= minAttempts)
+        .map(
+          (e) => TopicStat(
+            title: e.key,
+            attempts: e.value.attempts,
+            correct: e.value.correct,
+          ),
+        )
+        .toList()
+      ..sort((a, b) => a.accuracy.compareTo(b.accuracy));
+    return stats.take(limit).toList();
+  }
 
   /// Обратная совместимость для тестов: количество освоенных вопросов в теме.
   int topicDone(String topicId) => _masteredIds[topicId]?.length ?? 0;
@@ -58,6 +108,7 @@ class ProgressService extends ChangeNotifier {
     _lastActiveDay = _prefs.getString(_kLastDay);
     _onboardingDone = _prefs.getBool(_kOnboardingDone) ?? false;
     _masteredIds = _readMasteredIds();
+    _topicStats = _readTopicStats();
     _incompleteSession = _readIncompleteSession();
     notifyListeners();
   }
@@ -75,25 +126,49 @@ class ProgressService extends ChangeNotifier {
         }
       });
       return result;
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('ProgressService: повреждён $_kMasteredIds, сброс — $e');
       return {};
     }
   }
 
-  Map<String, dynamic>? _readIncompleteSession() {
+  Map<String, _TopicCount> _readTopicStats() {
+    final raw = _prefs.getString(_kTopicStats);
+    if (raw == null) return {};
+    try {
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return {};
+      final result = <String, _TopicCount>{};
+      decoded.forEach((k, v) {
+        if (k is String && v is Map) {
+          final a = v['attempts'];
+          final c = v['correct'];
+          if (a is int && c is int) {
+            result[k] = _TopicCount(a, c);
+          }
+        }
+      });
+      return result;
+    } on Object catch (e) {
+      debugPrint('ProgressService: повреждён $_kTopicStats, сброс — $e');
+      return {};
+    }
+  }
+
+  Map<String, Object?>? _readIncompleteSession() {
     final raw = _prefs.getString(_kIncompleteSession);
     if (raw == null) return null;
     try {
       final decoded = json.decode(raw);
       if (decoded is! Map) return null;
-      return decoded.cast<String, dynamic>();
-    } catch (_) {
+      return decoded.cast<String, Object?>();
+    } on Object catch (_) {
       return null;
     }
   }
 
-  /// Записать итог завершённой сессии: начислить XP за новые ID, обновить streak.
+  /// Записать итог завершённой сессии: начислить XP за новые ID, обновить streak
+  /// и обновить статистику точности по темам из [result.answers].
   Future<void> recordSession(String gradeKey, SessionResult result) async {
     final existing = _masteredIds[gradeKey] ?? const <String>{};
     final gained = result.correctIds.difference(existing);
@@ -101,6 +176,15 @@ class ProgressService extends ChangeNotifier {
     if (gained.isNotEmpty) {
       _xp += gained.length * 10;
       _masteredIds[gradeKey] = {...existing, ...result.correctIds};
+    }
+
+    // Обновляем статистику по темам из детальных ответов сессии.
+    for (final a in result.answers) {
+      final topic = a.question.topic;
+      if (topic == null || topic.isEmpty) continue;
+      final count = _topicStats.putIfAbsent(topic, () => _TopicCount(0, 0));
+      count.attempts++;
+      if (a.outcome == AnswerOutcome.correct) count.correct++;
     }
 
     // Сессия завершена — слот незавершённой сессии для этого грейда сбрасывается.
@@ -115,7 +199,7 @@ class ProgressService extends ChangeNotifier {
   }
 
   /// Вернуть сохранённую незавершённую сессию для gradeKey, или null.
-  Map<String, dynamic>? loadIncompleteSession(String gradeKey) {
+  Map<String, Object?>? loadIncompleteSession(String gradeKey) {
     final s = _incompleteSession;
     if (s == null || s['gradeKey'] != gradeKey) return null;
     return s;
@@ -123,7 +207,7 @@ class ProgressService extends ChangeNotifier {
 
   /// Сохранить незавершённую сессию (синхронно в памяти, асинхронно на диск).
   /// Вызывается из dispose() виджета — не должен блокировать.
-  void saveIncompleteSessionSync(Map<String, dynamic> data) {
+  void saveIncompleteSessionSync(Map<String, Object?> data) {
     _incompleteSession = data;
     // Fire-and-forget: вызывается из dispose(), await невозможен.
     // ignore: discarded_futures
@@ -131,7 +215,7 @@ class ProgressService extends ChangeNotifier {
   }
 
   /// Сохранить незавершённую сессию асинхронно (из обычных async-контекстов).
-  Future<void> saveIncompleteSession(Map<String, dynamic> data) async {
+  Future<void> saveIncompleteSession(Map<String, Object?> data) async {
     _incompleteSession = data;
     await _prefs.setString(_kIncompleteSession, json.encode(data));
   }
@@ -161,11 +245,7 @@ class ProgressService extends ChangeNotifier {
     final todayKey = _dayKey(now);
     if (_lastActiveDay == todayKey) return;
     final yesterdayKey = _dayKey(DateTime(now.year, now.month, now.day - 1));
-    if (_lastActiveDay == yesterdayKey) {
-      _streak += 1;
-    } else {
-      _streak = 1;
-    }
+    _streak = _lastActiveDay == yesterdayKey ? _streak + 1 : 1;
     _lastActiveDay = todayKey;
   }
 
@@ -185,5 +265,10 @@ class ProgressService extends ChangeNotifier {
     }
     final serialized = _masteredIds.map((k, v) => MapEntry(k, v.toList()));
     await _prefs.setString(_kMasteredIds, json.encode(serialized));
+
+    final topicSerialized = _topicStats.map(
+      (k, v) => MapEntry(k, {'attempts': v.attempts, 'correct': v.correct}),
+    );
+    await _prefs.setString(_kTopicStats, json.encode(topicSerialized));
   }
 }
