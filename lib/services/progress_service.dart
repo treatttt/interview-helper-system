@@ -33,6 +33,10 @@ class ProgressService extends ChangeNotifier {
   bool get onboardingDone => _onboardingDone;
   bool get hasTrainedEver => _lastActiveDay != null;
 
+  /// Суммарное количество освоенных вопросов по всем грейдам.
+  int get totalMastered =>
+      _masteredIds.values.fold(0, (sum, ids) => sum + ids.length);
+
   /// Обратная совместимость для тестов: количество освоенных вопросов в теме.
   int topicDone(String topicId) => _masteredIds[topicId]?.length ?? 0;
 

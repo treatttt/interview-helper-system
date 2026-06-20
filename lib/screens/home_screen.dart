@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
-import 'package:interview_helper_system/screens/settings_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
-import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.repository,
     required this.progress,
-    required this.themeService,
     super.key,
   });
   final QuestionRepository repository;
   final ProgressService progress;
-  final ThemeService themeService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -63,17 +59,17 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context, _) {
               if (!widget.progress.hasTrainedEver) return const SizedBox.shrink();
               return Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.only(right: 12),
                 child: Row(
                   children: [
                     const Icon(Icons.local_fire_department,
-                      color: Colors.orange,
+                      color: Color(0xFFF5871F),
                       size: 20,
                     ),
                     const SizedBox(width: 4),
                     Text('${widget.progress.streak}',
                         style: const TextStyle(
-                            color: Colors.orange,
+                            color: Color(0xFFF5871F),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -81,16 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Настройки',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    SettingsScreen(themeService: widget.themeService),
-              ),
-            ),
           ),
         ],
       ),

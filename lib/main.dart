@@ -1,5 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/screens/main_shell.dart';
 import 'package:interview_helper_system/screens/onboarding_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
@@ -29,7 +31,6 @@ class InterviewHelperApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final QuestionRepository repository = JsonQuestionRepository();
 
-    // MaterialApp слушает themeService и пересобирается при смене режима.
     return ListenableBuilder(
       listenable: themeService,
       builder: (context, _) => MaterialApp(
@@ -40,19 +41,19 @@ class InterviewHelperApp extends StatelessWidget {
         darkTheme: buildDarkTheme(),
         themeMode: themeService.mode,
         home: progress.onboardingDone
-            ? HomeScreen(
+            ? MainShell(
                 repository: repository,
                 progress: progress,
                 themeService: themeService,
               )
             : OnboardingScreen(
                 onFinish: () {
-                  progress.markOnboardingDone();
+                  unawaited(progress.markOnboardingDone());
                   navigatorKey.currentState?.pushReplacement(
                     MaterialPageRoute<void>(
-                        builder: (_) => HomeScreen(
-                            repository: repository,
-                            progress: progress,
+                      builder: (_) => MainShell(
+                        repository: repository,
+                        progress: progress,
                         themeService: themeService,
                       ),
                     ),
