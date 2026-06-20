@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
+import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 
@@ -20,33 +21,13 @@ class TopicsScreen extends StatefulWidget {
   State<TopicsScreen> createState() => _TopicsScreenState();
 }
 
-class _TopicsScreenState extends State<TopicsScreen> {
-  List<Track> _tracks = [];
-  bool _loading = true;
-  String? _error;
+class _TopicsScreenState extends State<TopicsScreen>
+    with TracksLoader<TopicsScreen> {
+  @override
+  QuestionRepository get repository => widget.repository;
 
   @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    try {
-      final tracks = await widget.repository.loadTracks();
-      if (!mounted) return;
-      setState(() {
-        _tracks = tracks.toList()..sort((a, b) => a.order.compareTo(b.order));
-        _loading = false;
-      });
-    } on Object {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Не удалось загрузить направления';
-        _loading = false;
-      });
-    }
-  }
+  String get loadErrorMessage => 'Не удалось загрузить направления';
 
   @override
   Widget build(BuildContext context) {
@@ -54,11 +35,11 @@ class _TopicsScreenState extends State<TopicsScreen> {
       appBar: AppBar(
         title: const Text('Темы', style: TextStyle(fontWeight: FontWeight.w500)),
       ),
-      body: _loading
+      body: loading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : _tracks.isEmpty
+          : error != null
+              ? ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad)
+              : tracks.isEmpty
                   ? _emptyView()
                   : ListenableBuilder(
                       listenable: widget.progress,
@@ -67,10 +48,10 @@ class _TopicsScreenState extends State<TopicsScreen> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        itemCount: _tracks.length,
+                        itemCount: tracks.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (_, i) => _TrackCard(
-                          track: _tracks[i],
+                          track: tracks[i],
                           progress: widget.progress,
                         ),
                       ),
@@ -104,44 +85,6 @@ class _TopicsScreenState extends State<TopicsScreen> {
       ),
     );
   }
-
-  Widget _errorView() {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_outlined, size: 48, color: cs.onSurfaceVariant),
-            const SizedBox(height: 16),
-            const Text(
-              'Не удалось загрузить направления',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Что-то пошло не так. Попробуй ещё раз.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () {
-                setState(() {
-                  _error = null;
-                  _loading = true;
-                });
-                _load();
-              },
-              child: const Text('Попробовать снова'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _TrackCard extends StatelessWidget {
@@ -158,8 +101,7 @@ class _TrackCard extends StatelessWidget {
       0,
       (s, g) => s + progress.masteredIds(track.id, g.id).length,
     );
-    final progressPct =
-        totalQuestions == 0 ? 0.0 : mastered / totalQuestions;
+    final progressPct = totalQuestions == 0 ? 0.0 : mastered / totalQuestions;
 
     return InkWell(
       onTap: () => unawaited(
