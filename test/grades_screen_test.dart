@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
-
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:mocktail/mocktail.dart';
 
 // --- Test double -----------------------------------------------------------
 class MockProgressService extends Mock implements ProgressService {}
@@ -69,7 +68,7 @@ void main() {
       final track = _track(
         id: 't1',
         title: 'Backend',
-        grades: [_grade(id: 'g1', title: 'Junior', questions: const [])],
+        grades: [_grade(id: 'g1', title: 'Junior')],
       );
       await pumpScreen(tester, track);
 
@@ -86,7 +85,7 @@ void main() {
           final track = _track(
             id: 't1',
             title: 'Backend',
-            grades: [_grade(id: 'g1', title: 'Junior', questions: const [])],
+            grades: [_grade(id: 'g1', title: 'Junior')],
           );
           await pumpScreen(tester, track);
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
+import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/theme.dart';
@@ -87,21 +88,56 @@ class _HomeScreenState extends State<HomeScreen> {
     _pushGrades(_tracks.first);
   }
 
+  /// Тык по слабой теме → сессия из непройденных вопросов именно этой темы.
+  /// Берём первый грейд (по порядку), где такие вопросы есть, и гоняем только
+  /// их подмножество. Прогресс пишется под ключом track_grade этого грейда, как
+  /// у обычной сессии. Тема может встречаться в нескольких грейдах — остаток
+  /// всплывёт при следующем заходе.
   void _openWeakTopic(String topicTitle) {
     for (final track in _tracks) {
       final grades = [...track.grades]
         ..sort((a, b) => a.order.compareTo(b.order));
       for (final grade in grades) {
         final mastered = widget.progress.masteredIds(track.id, grade.id);
-        final has = grade.questions
-            .any((q) => q.topic == topicTitle && !mastered.contains(q.id));
-        if (has) {
-          _pushGrades(track);
+        final topicQuestions = grade.questions
+            .where((q) => q.topic == topicTitle && !mastered.contains(q.id))
+            .toList();
+        if (topicQuestions.isNotEmpty) {
+          _startTopicDrill(track, grade, topicQuestions);
           return;
         }
       }
     }
-    if (_tracks.isNotEmpty) _pushGrades(_tracks.first);
+    // Непройденных вопросов темы не осталось — все освоены.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Все вопросы темы «$topicTitle» пройдены. '
+            'Сбрось грейд в каталоге, чтобы повторить.',
+          ),
+        ),
+      );
+  }
+
+  /// Запуск тема-дрилла. persistIncomplete: false — короткий дрилл не сохраняет
+  /// своё незавершённое состояние и не трогает единственный слот незавершённой
+  /// сессии грейда (иначе полногрейдовая пауза была бы перезаписана/затёрта).
+  void _startTopicDrill(Track track, Grade grade, List<Question> questions) {
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SessionScreen(
+            track: track,
+            grade: grade,
+            questions: questions,
+            progress: widget.progress,
+            persistIncomplete: false,
+          ),
+        ),
+      ),
+    );
   }
 
   void _pushGrades(Track track) {
@@ -155,34 +191,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _metricsRow() {
     final p = widget.progress;
     final accuracyPct = (p.overallAccuracy * 100).round();
-    final accuracyLabel =
-        p.hasTrainedEver ? '$accuracyPct%' : '—';
+    final accuracyLabel = p.hasTrainedEver ? '$accuracyPct%' : '—';
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _MetricCard(
-            value: accuracyLabel,
-            label: 'Точность',
+    // IntrinsicHeight + stretch гарантируют равную высоту всех трёх карточек
+    // независимо от длины подписи или системного масштаба шрифта.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _MetricCard(
+              value: accuracyLabel,
+              label: 'Точность',
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MetricCard(
-            value: '${p.streak}',
-            label: p.streak == 1 ? 'день' : 'дней',
-            sublabel: 'серия',
+          const SizedBox(width: 10),
+          Expanded(
+            child: _MetricCard(
+              value: '${p.streak}',
+              label: 'серия',
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MetricCard(
-            value: '${p.totalMastered}',
-            label: 'освоено',
+          const SizedBox(width: 10),
+          Expanded(
+            child: _MetricCard(
+              value: '${p.totalMastered}',
+              label: 'освоено',
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -261,8 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _trackRow(Track track) {
     final cs = Theme.of(context).colorScheme;
-    final totalQ =
-        track.grades.fold<int>(0, (s, g) => s + g.questions.length);
+    final totalQ = track.grades.fold<int>(0, (s, g) => s + g.questions.length);
     final mastered = track.grades.fold<int>(
       0,
       (s, g) => s + widget.progress.masteredIds(track.id, g.id).length,
@@ -359,11 +396,9 @@ class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.value,
     required this.label,
-    this.sublabel,
   });
   final String value;
   final String label;
-  final String? sublabel;
 
   @override
   Widget build(BuildContext context) {
@@ -387,11 +422,6 @@ class _MetricCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 3),
-          if (sublabel != null)
-            Text(
-              sublabel!,
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-            ),
           Text(
             label,
             style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),

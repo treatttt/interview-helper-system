@@ -16,6 +16,7 @@ class SessionScreen extends StatefulWidget {
     super.key,
     this.initialIndex = 0,
     this.previousAnswers = const [],
+    this.persistIncomplete = true,
   });
   final Track track;
   final Grade grade;
@@ -29,6 +30,11 @@ class SessionScreen extends StatefulWidget {
 
   /// Уже отвеченные вопросы из предыдущей части сессии (для resume).
   final List<AnsweredQuestion> previousAnswers;
+
+  /// Сохранять ли незавершённое состояние в слот грейда.
+  /// false — для коротких тема-дриллов: они не резюмируются и не трогают
+  /// единственный слот незавершённой сессии грейда.
+  final bool persistIncomplete;
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -63,6 +69,8 @@ class _SessionScreenState extends State<SessionScreen> {
 
   /// Сохранить состояние сессии при выходе без завершения.
   void _saveIncompleteSession() {
+    // Тема-дрилл (persistIncomplete: false) не сохраняется и не трогает слот.
+    if (!widget.persistIncomplete) return;
     final c = _controller;
     // Сохраняем только если хотя бы один вопрос отвечен и сессия не завершена.
     if (c.answers.isEmpty || c.answers.length >= c.total) return;
@@ -90,7 +98,11 @@ class _SessionScreenState extends State<SessionScreen> {
     if (!hasMore) {
       _finishing = true;
       final sessionKey = '${widget.track.id}_${widget.grade.id}';
-      widget.progress.recordSession(sessionKey, _controller.result);
+      widget.progress.recordSession(
+        sessionKey,
+        _controller.result,
+        clearIncomplete: widget.persistIncomplete,
+      );
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
@@ -145,8 +157,9 @@ class _SessionScreenState extends State<SessionScreen> {
                         child: Text(
                           '${widget.track.title} · ${widget.grade.title}',
                           style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -160,9 +173,9 @@ class _SessionScreenState extends State<SessionScreen> {
                         ),
                       const SizedBox(height: 6),
                       Text(c.current.text,
-                          style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w500,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
                           height: 1.4,
                         ),
                       ),
