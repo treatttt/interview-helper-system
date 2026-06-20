@@ -169,7 +169,15 @@ class ProgressService extends ChangeNotifier {
 
   /// Записать итог завершённой сессии: начислить XP за новые ID, обновить streak
   /// и обновить статистику точности по темам из [result.answers].
-  Future<void> recordSession(String gradeKey, SessionResult result) async {
+  ///
+  /// [clearIncomplete] — сбрасывать ли слот незавершённой сессии этого грейда.
+  /// false передаёт тема-дрилл: он не должен затирать паузу полногрейдовой
+  /// сессии, лежащую под тем же ключом.
+  Future<void> recordSession(
+    String gradeKey,
+    SessionResult result, {
+    bool clearIncomplete = true,
+  }) async {
     final existing = _masteredIds[gradeKey] ?? const <String>{};
     final gained = result.correctIds.difference(existing);
 
@@ -188,7 +196,7 @@ class ProgressService extends ChangeNotifier {
     }
 
     // Сессия завершена — слот незавершённой сессии для этого грейда сбрасывается.
-    if (_incompleteSession?['gradeKey'] == gradeKey) {
+    if (clearIncomplete && _incompleteSession?['gradeKey'] == gradeKey) {
       _incompleteSession = null;
       await _prefs.remove(_kIncompleteSession);
     }
