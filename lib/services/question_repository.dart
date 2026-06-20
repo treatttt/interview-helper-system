@@ -10,6 +10,29 @@ abstract class QuestionRepository {
   Future<List<Track>> loadTracks();
 }
 
+/// Агрегирует вопросы из всех треков и грейдов по теме (Question.topic).
+/// Вопросы с topic == null или пустой строкой не включаются.
+/// Результат отсортирован по алфавиту; пустые группы не возникают.
+List<TopicGroup> aggregateTopics(List<Track> tracks) {
+  final grouped = <String, List<QuestionOrigin>>{};
+  for (final track in tracks) {
+    for (final grade in track.grades) {
+      for (final question in grade.questions) {
+        final topic = question.topic;
+        if (topic == null || topic.isEmpty) continue;
+        (grouped[topic] ??= []).add(
+          QuestionOrigin(track: track, grade: grade, question: question),
+        );
+      }
+    }
+  }
+  return grouped.entries
+      .where((e) => e.value.isNotEmpty)
+      .map((e) => TopicGroup(title: e.key, questions: List.unmodifiable(e.value)))
+      .toList()
+    ..sort((a, b) => a.title.compareTo(b.title));
+}
+
 class JsonQuestionRepository implements QuestionRepository {
   @override
   Future<List<Track>> loadTracks() async {

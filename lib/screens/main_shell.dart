@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
 import 'package:interview_helper_system/screens/profile_screen.dart';
-import 'package:interview_helper_system/screens/tasks_screen.dart';
+import 'package:interview_helper_system/screens/topics_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
@@ -41,7 +41,10 @@ class _MainShellState extends State<MainShell> {
             repository: widget.repository,
             progress: widget.progress,
           ),
-          const TasksScreen(),
+          TopicsScreen(
+            repository: widget.repository,
+            progress: widget.progress,
+          ),
           ProfileScreen(
             progress: widget.progress,
             themeService: widget.themeService,
@@ -58,9 +61,9 @@ class _MainShellState extends State<MainShell> {
             label: 'Главная',
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Задания',
+            icon: Icon(Icons.category_outlined),
+            selectedIcon: Icon(Icons.category),
+            label: 'Темы',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

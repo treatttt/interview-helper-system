@@ -58,7 +58,7 @@ void main() {
 
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.text('Главная'), findsOneWidget);
-      expect(find.text('Задания'), findsOneWidget);
+      expect(find.text('Темы'), findsOneWidget);
       expect(find.text('Профиль'), findsOneWidget);
     });
 
@@ -70,15 +70,18 @@ void main() {
       expect(find.text('Тренажёр'), findsOneWidget);
     });
 
-    testWidgets('переход на вкладку «Задания» показывает заглушку', (tester) async {
+    testWidgets('переход на вкладку «Темы» показывает каталог тем',
+        (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
-      await tester.tap(find.text('Задания'));
+      await tester.tap(find.text('Темы'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Задания'), findsWidgets); // и в AppBar, и в таб-баре
-      expect(find.textContaining('Скоро здесь появятся задания'), findsOneWidget);
+      // «Темы» присутствует и в AppBar, и в таб-баре
+      expect(find.text('Темы'), findsWidgets);
+      // С пустым репозиторием TopicsScreen показывает пустое состояние
+      expect(find.text('Вопросов пока нет'), findsOneWidget);
     });
 
     testWidgets('переход на вкладку «Профиль» показывает экран профиля',

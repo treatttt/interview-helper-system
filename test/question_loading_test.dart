@@ -16,8 +16,15 @@ Map<String, dynamic> _questionJson({
   String text = 'Вопрос?',
   List<String> options = const ['A', 'B', 'C'],
   List<int> correctIndexes = const [0],
+  String? topic,
 }) =>
-    {'id': id, 'text': text, 'options': options, 'correctIndexes': correctIndexes};
+    {
+      'id': id,
+      'text': text,
+      'options': options,
+      'correctIndexes': correctIndexes,
+      if (topic != null) 'topic': topic,
+    };
 
 Map<String, dynamic> _gradeJson({
   required List<Map<String, dynamic>> questions, String id = 'junior',
@@ -116,6 +123,28 @@ void main() {
       expect(tracks.single.grades.single.questions, hasLength(2));
     });
 
+    test('поле topic сохраняется при парсинге', () {
+      final raw = _bank([
+        _trackJson(grades: [
+          _gradeJson(questions: [
+            _questionJson(topic: 'SQL'),
+          ],),
+        ],),
+      ]);
+      final tracks = repo.parseTracks(raw);
+      expect(tracks.single.grades.single.questions.single.topic, 'SQL');
+    });
+
+    test('отсутствующий topic парсится как null', () {
+      final raw = _bank([
+        _trackJson(grades: [
+          _gradeJson(questions: [_questionJson()]),
+        ],),
+      ]);
+      final tracks = repo.parseTracks(raw);
+      expect(tracks.single.grades.single.questions.single.topic, isNull);
+    });
+
     test('битый JSON (пропущена запятая) → FormatException', () {
       const broken =
           '{ "tracks": [ { "id": "t1" "title": "Тема", "grades": [] } ] }';
@@ -212,7 +241,9 @@ void main() {
       expect(find.text('Вопросов пока нет'), findsOneWidget);
     });
 
-    testWidgets('есть треки → список отображается', (tester) async {
+    testWidgets('есть треки с темами → дашборд с метриками отображается',
+        (tester) async {
+      // Вопросы с topic создают TopicGroup → home screen показывает дашборд.
       final tracks = [
         const Track(
           id: 'analytics',
@@ -229,6 +260,7 @@ void main() {
                   text: 'Вопрос?',
                   options: ['A', 'B'],
                   correctIndexes: [0],
+                  topic: 'SQL',
                 ),
               ],
             ),
@@ -238,7 +270,11 @@ void main() {
 
       await tester.pumpWidget(await homeUnder(_FakeRepo.data(tracks)));
       await tester.pumpAndSettle();
-      expect(find.text('Аналитика'), findsOneWidget);
+
+      // Метрики всегда присутствуют на дашборде после загрузки.
+      expect(find.text('Освоено'), findsOneWidget);
+      expect(find.text('Серия'), findsOneWidget);
+      expect(find.text('XP'), findsOneWidget);
     });
   });
 }

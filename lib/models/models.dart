@@ -7,6 +7,7 @@ class Question {
     required this.options,
     required this.correctIndexes,
     this.explanation,
+    this.topic,
   });
 
   /// Ключи должны совпадать с questions.json
@@ -17,6 +18,7 @@ class Question {
         correctIndexes:
             (json['correctIndexes'] as List).map((e) => e as int).toList(),
         explanation: json['explanation'] as String?,
+        topic: json['topic'] as String?,
       );
   final String id;
   final String text;
@@ -25,6 +27,9 @@ class Question {
 
   /// Индексы правильных ответов в options
   final String? explanation;
+
+  /// Тема вопроса — сквозной тег (напр. «SQL», «API и интеграции»).
+  final String? topic;
 
   bool get isMultipleChoice => correctIndexes.length > 1;
 
@@ -98,3 +103,27 @@ class Track {
 /// Обратная совместимость: Topic — псевдоним Grade для плавного перехода.
 /// Использовать только в тестах, написанных до переименования.
 typedef Topic = Grade;
+
+/// Вопрос вместе с его исходным треком и грейдом.
+/// Хранится в TopicGroup для корректной записи прогресса по нужному gradeKey.
+class QuestionOrigin {
+  const QuestionOrigin({
+    required this.track,
+    required this.grade,
+    required this.question,
+  });
+
+  final Track track;
+  final Grade grade;
+  final Question question;
+
+  String get gradeKey => '${track.id}_${grade.id}';
+}
+
+/// Все вопросы одной темы, собранные из всех треков и грейдов.
+class TopicGroup {
+  const TopicGroup({required this.title, required this.questions});
+
+  final String title;
+  final List<QuestionOrigin> questions;
+}

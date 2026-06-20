@@ -8,16 +8,29 @@ import 'package:interview_helper_system/utils/option_highlight.dart';
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({
-    required this.track,
-    required this.grade,
+    this.track,
+    this.grade,
+    this.origins,
+    this.topicTitle,
     required this.progress,
     required this.questions,
-    super.key,
     this.initialIndex = 0,
     this.previousAnswers = const [],
+    super.key,
   });
-  final Track track;
-  final Grade grade;
+
+  /// Направление и грейд — для сессий по грейду (не-null) и как представители
+  /// для ResultScreen в тематических сессиях (берётся first.track/grade).
+  final Track? track;
+  final Grade? grade;
+
+  /// Если задано, сессия тематическая: прогресс пишется по gradeKey каждого
+  /// вопроса, незавершённая сессия не сохраняется.
+  final List<QuestionOrigin>? origins;
+
+  /// Название темы — отображается в AppBar вместо «Track · Grade».
+  final String? topicTitle;
+
   final ProgressService progress;
 
   /// Отфильтрованный список вопросов для сессии (без уже освоенных).
@@ -36,6 +49,8 @@ class SessionScreen extends StatefulWidget {
 class _SessionScreenState extends State<SessionScreen> {
   late final SessionController _controller;
   bool _finishing = false;
+
+  bool get _isTopicSession => widget.origins != null;
 
   @override
   void initState() {
@@ -61,13 +76,16 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   /// Сохранить состояние сессии при выходе без завершения.
+  /// Для тематических сессий сохранение пропускается (resume не поддерживается).
   void _saveIncompleteSession() {
+    if (_isTopicSession) return;
+
     final c = _controller;
     // Сохраняем только если хотя бы один вопрос отвечен и сессия не завершена.
     if (c.answers.isEmpty || c.answers.length >= c.total) return;
 
     widget.progress.saveIncompleteSessionSync({
-      'gradeKey': '${widget.track.id}_${widget.grade.id}',
+      'gradeKey': '${widget.track!.id}_${widget.grade!.id}',
       'questionIds': widget.questions.map((q) => q.id).toList(),
       'currentIndex': c.answers.length,
       'answeredData': c.answers
@@ -86,16 +104,76 @@ class _SessionScreenState extends State<SessionScreen> {
     final hasMore = _controller.next();
     if (!hasMore) {
       _finishing = true;
-      final sessionKey = '${widget.track.id}_${widget.grade.id}';
-      widget.progress.recordSession(sessionKey, _controller.result);
+
+      if (_isTopicSession) {
+        _recordTopicSession();
+      } else {
+        final sessionKey = '${widget.track!.id}_${widget.grade!.id}';
+        widget.progress.recordSession(sessionKey, _controller.result);
+      }
+
+      final representativeTrack =
+          widget.track ?? widget.origins!.first.track;
+      final representativeGrade =
+          widget.grade ?? widget.origins!.first.grade;
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
             result: _controller.result,
-            track: widget.track,
-            grade: widget.grade,
+            track: representativeTrack,
+            grade: representativeGrade,
             progress: widget.progress,
           ),
+        ),
+      );
+    }
+  }
+
+  /// Раскладывает результат тематической сессии по родным gradeKey каждого вопроса.
+  void _recordTopicSession() {
+    final origins = widget.origins!;
+    final byId = <String, QuestionOrigin>{
+      for (final o in origins) o.question.id: o,
+    };
+
+    // Группируем верно отвеченные вопросы по gradeKey.
+    final correctByKey = <String, Set<String>>{};
+    for (final a in _controller.answers) {
+      if (a.outcome == AnswerOutcome.correct) {
+        final o = byId[a.question.id];
+        if (o != null) (correctByKey[o.gradeKey] ??= {}).add(a.question.id);
+      }
+    }
+
+    if (correctByKey.isEmpty) {
+      // Нет верных ответов — всё равно обновляем streak через recordSession.
+      widget.progress.recordSession(
+        origins.first.gradeKey,
+        SessionResult(
+          correct: 0,
+          partial: 0,
+          wrong: _controller.result.wrong,
+          points: 0,
+          maxPoints: _controller.result.maxPoints,
+          answers: const [],
+          correctIds: const {},
+        ),
+      );
+      return;
+    }
+
+    for (final entry in correctByKey.entries) {
+      widget.progress.recordSession(
+        entry.key,
+        SessionResult(
+          correct: entry.value.length,
+          partial: 0,
+          wrong: 0,
+          points: entry.value.length,
+          maxPoints: entry.value.length,
+          answers: const [],
+          correctIds: entry.value,
         ),
       );
     }
@@ -140,7 +218,7 @@ class _SessionScreenState extends State<SessionScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          '${widget.track.title} · ${widget.grade.title}',
+                          _sessionLabel(),
                           style: TextStyle(
                               fontSize: 11,
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -213,6 +291,14 @@ class _SessionScreenState extends State<SessionScreen> {
         );
       },
     );
+  }
+
+  String _sessionLabel() {
+    if (widget.topicTitle != null) return widget.topicTitle!;
+    final t = widget.track;
+    final g = widget.grade;
+    if (t != null && g != null) return '${t.title} · ${g.title}';
+    return '';
   }
 
   String _buttonLabel(SessionController c) {
