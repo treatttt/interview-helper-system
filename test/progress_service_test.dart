@@ -127,10 +127,8 @@ void main() {
       );
 
   /// Создаёт AnsweredQuestion с нужным исходом.
-  AnsweredQuestion answered(
-    Question question,
-    AnswerOutcome outcome,
-  ) =>
+  AnsweredQuestion answered(Question question,
+      AnswerOutcome outcome,) =>
       AnsweredQuestion(
         question: question,
         selected: const {0},
@@ -289,6 +287,84 @@ void main() {
       expect(p.overallAccuracy, 0.0);
       final topics = p.weakestTopics();
       expect(topics.first.correct, 0);
+    });
+  });
+
+  group('ProgressService — сброс мастеринга и тема-слот паузы', () {
+    test('resetMastered снимает только указанные ID, пустые грейды убирает',
+        () async {
+      final p = await freshService();
+      await p.recordSession('t1_junior', res(2)); // освоены q1, q2
+      await p.recordSession('t1_middle', res(1)); // освоен q1
+
+      await p.resetMastered({
+        't1_junior': {'q1'},
+        't1_middle': {'q1'},
+      });
+
+      expect(p.masteredIds('t1', 'junior'), {'q2'});
+      // грейд опустел → ключ удалён, мастеринг пуст
+      expect(p.masteredIds('t1', 'middle'), isEmpty);
+    });
+
+    test('resetMastered без реальных изменений ничего не ломает', () async {
+      final p = await freshService();
+      await p.recordSession('t1_junior', res(2));
+      await p.resetMastered({'t1_junior': const <String>{}}); // пустой набор
+      await p.resetMastered({
+        't9_x': {'qZ'}
+      }); // несуществующий грейд
+      expect(p.masteredIds('t1', 'junior'), {'q1', 'q2'});
+    });
+
+    test('тема-слот: save/load по названию темы, чужую тему не отдаёт',
+        () async {
+      final p = await freshService();
+      p.saveIncompleteTopicSessionSync({
+        'gradeKey': 't1_junior',
+        'questionIds': ['q1', 'q2'],
+        'currentIndex': 1,
+        'answeredData': const <Object?>[],
+        'topicTitle': 'SQL',
+      });
+
+      expect(p.loadIncompleteTopicSession('SQL'), isNotNull);
+      expect(p.loadIncompleteTopicSession('ООП'), isNull);
+    });
+
+    test('тема-слот и грейдовый слот независимы', () async {
+      final p = await freshService();
+      await p.saveIncompleteSession({
+        'gradeKey': 't1_junior',
+        'questionIds': ['q1'],
+        'currentIndex': 0,
+        'answeredData': const <Object?>[],
+      });
+      p.saveIncompleteTopicSessionSync({
+        'gradeKey': 't1_junior',
+        'questionIds': ['q1', 'q2'],
+        'currentIndex': 1,
+        'answeredData': const <Object?>[],
+        'topicTitle': 'SQL',
+      });
+
+      // Очистка тема-слота не трогает грейдовый слот того же грейда.
+      await p.clearIncompleteTopicSession(topicTitle: 'SQL');
+      expect(p.loadIncompleteTopicSession('SQL'), isNull);
+      expect(p.loadIncompleteSession('t1_junior'), isNotNull);
+    });
+
+    test('clearIncompleteTopicSession с чужой темой — no-op', () async {
+      final p = await freshService();
+      p.saveIncompleteTopicSessionSync({
+        'gradeKey': 't1_junior',
+        'questionIds': ['q1'],
+        'currentIndex': 0,
+        'answeredData': const <Object?>[],
+        'topicTitle': 'SQL',
+      });
+      await p.clearIncompleteTopicSession(topicTitle: 'ООП'); // не та тема
+      expect(p.loadIncompleteTopicSession('SQL'), isNotNull);
     });
   });
 }
