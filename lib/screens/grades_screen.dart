@@ -6,6 +6,13 @@ import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 
+/// План запуска сессии: какие вопросы, с какого индекса, ранее отвеченные.
+typedef _SessionPlan = ({
+  List<Question> questions,
+  int startIndex,
+  List<AnsweredQuestion> previousAnswers,
+});
+
 /// Экран грейдов — показывает список Junior/Middle/Senior для выбранного направления.
 class GradesScreen extends StatefulWidget {
   const GradesScreen({
@@ -27,71 +34,84 @@ class _GradesScreenState extends State<GradesScreen> {
     if (_opening) return;
     _opening = true;
     try {
-      final trackId = widget.track.id;
-      final gradeId = grade.id;
-      final gradeKey = '${trackId}_$gradeId';
-
-      final mastered = widget.progress.masteredIds(trackId, gradeId);
+      final gradeKey = '${widget.track.id}_${grade.id}';
+      final mastered = widget.progress.masteredIds(widget.track.id, grade.id);
       final remaining =
       grade.questions.where((q) => !mastered.contains(q.id)).toList();
-
       if (remaining.isEmpty) return;
 
-      List<Question> sessionQuestions;
-      var startIndex = 0;
-      var previousAnswers = const <AnsweredQuestion>[];
-
-      final incompleteRaw = widget.progress.loadIncompleteSession(gradeKey);
-      if (incompleteRaw != null) {
-        final incomplete = IncompleteSession.fromJson(incompleteRaw);
-        if (!mounted) return;
-        final choice = await _showResumeDialog(incomplete);
-        if (!mounted) return;
-
-        if (choice == null) return; // barrier/back dismiss → cancel silently
-        if (choice == 'continue') {
-          final questionMap = {for (final q in grade.questions) q.id: q};
-          sessionQuestions = incomplete.questionIds
-              .map((id) => questionMap[id])
-              .whereType<Question>()
-              .toList();
-          startIndex = incomplete.currentIndex;
-          previousAnswers = incomplete.answeredData.map((data) {
-            final q = questionMap[data.id]!;
-            final selected = data.selected.toSet();
-            final outcome = AnswerOutcome.values.byName(data.outcome);
-            return AnsweredQuestion(
-              question: q,
-              selected: selected,
-              outcome: outcome,
-            );
-          }).toList();
-        } else {
-          // 'restart': explicit user choice — clear saved session
-          await widget.progress.clearIncompleteSession(gradeKey: gradeKey);
-          sessionQuestions = remaining;
-        }
-      } else {
-        sessionQuestions = remaining;
-      }
-
-      if (!mounted) return;
+      final plan = await _resolveSessionPlan(grade, gradeKey, remaining);
+      if (plan == null || !mounted) return;
 
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => SessionScreen(
             track: widget.track,
             grade: grade,
-            questions: sessionQuestions,
+            questions: plan.questions,
             progress: widget.progress,
-            initialIndex: startIndex,
-            previousAnswers: previousAnswers,
+            initialIndex: plan.startIndex,
+            previousAnswers: plan.previousAnswers,
           ),
         ),
       );
     } finally {
       _opening = false;
     }
+  }
+
+  /// Решает, с какими вопросами стартовать сессию. При наличии незавершённой
+  /// сессии грейда спрашивает «Продолжить / Начать заново», иначе берёт
+  /// [remaining]. null — отмена (диалог закрыт или виджет размонтирован).
+  Future<_SessionPlan?> _resolveSessionPlan(
+    Grade grade,
+    String gradeKey,
+    List<Question> remaining,
+  ) async {
+    final incompleteRaw = widget.progress.loadIncompleteSession(gradeKey);
+    if (incompleteRaw == null) return _freshPlan(remaining);
+
+    final incomplete = IncompleteSession.fromJson(incompleteRaw);
+    if (!mounted) return null;
+    final choice = await _showResumeDialog(incomplete);
+    if (!mounted || choice == null) return null;
+
+    if (choice != 'continue') {
+      // 'restart': явный выбор пользователя — чистим сохранённую сессию.
+      await widget.progress.clearIncompleteSession(gradeKey: gradeKey);
+      return _freshPlan(remaining);
+    }
+
+    return _resumePlan(grade, incomplete);
+  }
+
+  _SessionPlan _freshPlan(List<Question> remaining) => (
+        questions: remaining,
+        startIndex: 0,
+        previousAnswers: const <AnsweredQuestion>[],
+      );
+
+  /// Восстанавливает план продолжения из сохранённой сессии.
+  _SessionPlan _resumePlan(Grade grade, IncompleteSession incomplete) {
+    final byId = {for (final q in grade.questions) q.id: q};
+    final questions = incomplete.questionIds
+        .map((id) => byId[id])
+        .whereType<Question>()
+        .toList();
+    final previousAnswers = incomplete.answeredData
+        .map(
+          (data) => AnsweredQuestion(
+            question: byId[data.id]!,
+            selected: data.selected.toSet(),
+            outcome: AnswerOutcome.values.byName(data.outcome),
+          ),
+        )
+        .toList();
+    return (
+      questions: questions,
+      startIndex: incomplete.currentIndex,
+      previousAnswers: previousAnswers,
+    );
   }
 
   Future<String?> _showResumeDialog(IncompleteSession incomplete) {
