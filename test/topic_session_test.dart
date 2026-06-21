@@ -243,11 +243,10 @@ void main() {
       when(() => progress.masteredIds(any(), any())).thenReturn(<String>{});
     });
 
-    Future<void> pumpStarter(
-        WidgetTester tester, {
-          required List<Track> tracks,
-          required String topic,
-        }) async {
+    Future<void> pumpStarter(WidgetTester tester, {
+      required List<Track> tracks,
+      required String topic,
+    }) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: buildLightTheme(),
@@ -292,7 +291,8 @@ void main() {
 
         expect(find.byType(SessionScreen), findsOneWidget);
         expect(find.text('JQ'), findsOneWidget);
-      },);
+      },
+    );
 
     testWidgets('в сессию попадают только вопросы темы, не весь грейд',
           (tester) async {
@@ -319,7 +319,8 @@ void main() {
         expect(find.text('1 / 1'), findsOneWidget);
         expect(find.text('SQLQ'), findsOneWidget);
         expect(find.text('OOPQ'), findsNothing);
-      },);
+      },
+    );
 
     testWidgets('берётся первый грейд по order (junior раньше middle)',
           (tester) async {
@@ -350,7 +351,54 @@ void main() {
         expect(find.textContaining('Junior'), findsOneWidget);
         expect(find.textContaining('Middle'), findsNothing);
         expect(find.text('JQ'), findsOneWidget);
-      },);
+      },
+    );
+
+    testWidgets(
+      'пауза по теме → диалог; barrier dismiss (null) → нет сессии, пауза не очищена',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'SQL', text: 'Q1')],
+              ),
+            ],
+          ),
+        ];
+        when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
+          const IncompleteSession(
+            gradeKey: 't1_junior',
+            questionIds: ['q1'],
+            currentIndex: 0,
+            answeredData: <AnsweredItemData>[],
+            topicTitle: 'SQL',
+          ).toJson(),
+        );
+        when(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        ).thenAnswer((_) async {});
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.text('Незавершённая тема'), findsOneWidget);
+        tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SessionScreen), findsNothing);
+        verifyNever(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        );
+      },
+    );
 
     testWidgets('все вопросы темы пройдены → сессии нет, показан SnackBar',
           (tester) async {
@@ -381,7 +429,8 @@ void main() {
         // Дренируем таймер авто-скрытия SnackBar (иначе pending timer на teardown).
         await tester.pump(const Duration(seconds: 5));
         await tester.pumpAndSettle();
-      },);
+      },
+    );
 
     testWidgets('темы нет в каталоге → сессии нет, показан SnackBar',
           (tester) async {
@@ -407,7 +456,8 @@ void main() {
         // Дренируем таймер авто-скрытия SnackBar (иначе pending timer на teardown).
         await tester.pump(const Duration(seconds: 5));
         await tester.pumpAndSettle();
-      },);
+      },
+    );
 
     testWidgets(
       'пауза по теме → диалог; «Продолжить» открывает сессию с места',
@@ -450,12 +500,13 @@ void main() {
         expect(find.byType(SessionScreen), findsOneWidget);
         expect(find.text('2 / 2'), findsOneWidget);
         expect(find.text('Q2'), findsOneWidget);
-      },);
+      },
+    );
 
     // ── Протухшая пауза: три причины, по которым _resumeArgs → null ──────────
-    // Во всех случаях: диалога продолжения нет, тема-слот чистится, идёт свежий
-    // старт. Покрывают _findGrade(null), _restoreAnswers(null) и расхождение по
-    // числу вопросов.
+    // Везде: диалога продолжения нет, тема-слот вычищается, идёт свежий старт.
+    // Покрывают _findGrade(null), _restoreAnswers(null) и расхождение по числу
+    // вопросов.
 
     testWidgets(
       'протухла (грейд из gradeKey исчез) → без диалога, слот чистится',
@@ -480,10 +531,11 @@ void main() {
         ).thenAnswer((_) async {});
         when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
           const IncompleteSession(
-            gradeKey: 't9_gone', // такого грейда в каталоге нет → _findGrade null
+            gradeKey: 't9_gone',
+            // такого грейда нет → _findGrade вернёт null
             questionIds: ['q1'],
             currentIndex: 0,
-            answeredData: [],
+            answeredData: <AnsweredItemData>[],
             topicTitle: 'SQL',
           ).toJson(),
         );
@@ -496,7 +548,8 @@ void main() {
         ).called(1);
         expect(find.byType(SessionScreen), findsOneWidget);
         expect(find.text('Q1'), findsOneWidget);
-      },);
+      },
+    );
 
     testWidgets(
       'протухла (отвеченный вопрос исчез) → без диалога, слот чистится',
@@ -523,7 +576,8 @@ void main() {
         when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
           const IncompleteSession(
             gradeKey: 't1_junior',
-            questionIds: ['q2'], // сам вопрос на месте, число совпадает
+            questionIds: ['q2'],
+            // вопрос на месте, число совпадает
             currentIndex: 1,
             answeredData: [
               // а отвеченный q1 уже отсутствует → _restoreAnswers null
@@ -541,7 +595,8 @@ void main() {
         ).called(1);
         expect(find.byType(SessionScreen), findsOneWidget);
         expect(find.text('Q2'), findsOneWidget);
-      },);
+      },
+    );
 
     testWidgets(
       'протухла (не все вопросы паузы есть в грейде) → без диалога, чистится',
@@ -567,9 +622,10 @@ void main() {
         when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
           const IncompleteSession(
             gradeKey: 't1_junior',
-            questionIds: ['q1', 'q2'], // q2 в каталоге отсутствует → length != length
+            questionIds: ['q1', 'q2'],
+            // q2 в каталоге нет → length != length
             currentIndex: 0,
-            answeredData: [],
+            answeredData: <AnsweredItemData>[],
             topicTitle: 'SQL',
           ).toJson(),
         );
@@ -582,7 +638,8 @@ void main() {
         ).called(1);
         expect(find.byType(SessionScreen), findsOneWidget);
         expect(find.text('Q1'), findsOneWidget);
-      },);
+      },
+    );
   });
 
   // ===========================================================================
@@ -631,6 +688,6 @@ void main() {
           verify(
                 () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
           ).called(1);
-        },);
+    },);
   });
 }

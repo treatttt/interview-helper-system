@@ -91,7 +91,7 @@ void main() {
 
           expect(find.byType(LinearProgressIndicator), findsNothing);
           expect(tester.takeException(), isNull);
-        });
+        },);
   });
 
   // === Descriptions: build (lines 162-166) + card (lines 229-233) ===========
@@ -114,7 +114,7 @@ void main() {
 
         expect(find.text('Серверная разработка'), findsOneWidget);
         expect(find.text('Базовый уровень'), findsOneWidget);
-      });
+      },);
 
   // === In-progress grade: switch arm (true,false) + trailing (276-300) ======
   group('in-progress grade', () {
@@ -153,7 +153,7 @@ void main() {
           expect(find.text('Сбросить прогресс?'), findsOneWidget);
           // The reset path must not open a session.
           expect(find.byType(SessionScreen), findsNothing);
-        });
+        },);
   });
 
   // === Reset dialog buttons: lines 133, 137, 143-144 ========================
@@ -194,7 +194,7 @@ void main() {
           await tester.pumpAndSettle();
 
           verify(() => progress.resetGrade('t1', 'g1')).called(1);
-        });
+        },);
   });
 
   // === Adversarial boundary: mastered count exceeds total ===================
@@ -216,7 +216,7 @@ void main() {
         await tester.tap(find.text('Junior'));
         await tester.pumpAndSettle();
         expect(find.text('Сбросить прогресс?'), findsOneWidget);
-      });
+      },);
 
   // === _openSession: lines 25-121 (navigates into a real SessionScreen) =====
   group('opening a session', () {
@@ -247,7 +247,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(SessionScreen), findsNothing);
           expect(tester.takeException(), isNull);
-        });
+        },);
 
     testWidgets('saved session + "Начать заново" clears it and opens a session',
             (tester) async {
@@ -270,7 +270,33 @@ void main() {
 
           verify(() => progress.clearIncompleteSession(gradeKey: 't1_g1')).called(1);
           expect(find.byType(SessionScreen), findsOneWidget);
+        },);
+
+    testWidgets(
+      'saved session + barrier dismiss (null) → no SessionScreen, no clear',
+      (tester) async {
+        when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
+        when(() => progress.loadIncompleteSession('t1_g1')).thenReturn({
+          'gradeKey': 't1_g1',
+          'questionIds': ['q1', 'q2'],
+          'currentIndex': 0,
+          'answeredData': <Map<String, dynamic>>[],
         });
+        await pumpScreen(tester, inProgress());
+
+        await tester.tap(find.text('Junior'));
+        await tester.pumpAndSettle();
+        // Dialog is showing; simulate system back / programmatic null pop.
+        tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SessionScreen), findsNothing);
+        verifyNever(
+          () =>
+              progress.clearIncompleteSession(gradeKey: any(named: 'gradeKey')),
+        );
+      },
+    );
 
     testWidgets('saved session + "Продолжить" resumes into a session',
             (tester) async {
@@ -290,9 +316,42 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.byType(SessionScreen), findsOneWidget);
-          verifyNever(
-                () => progress.clearIncompleteSession(gradeKey: any(named: 'gradeKey')),
+      verifyNever(
+        () => progress.clearIncompleteSession(gradeKey: any(named: 'gradeKey')),
+      );
+    },);
+
+    testWidgets(
+        '"Продолжить" с сохранёнными ответами → возобновляет на нужном вопросе',
+        (tester) async {
+      when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
+      // Непустой answeredData задействует разбор AnswerOutcome.byName и
+      // восстановление previousAnswers (вынесено в _resumePlan).
+      when(() => progress.loadIncompleteSession('t1_g1')).thenReturn({
+        'gradeKey': 't1_g1',
+        'questionIds': ['q1', 'q2'],
+        'currentIndex': 1,
+        'answeredData': [
+          {
+            'id': 'q1',
+            'selected': [0],
+            'outcome': 'correct',
+          },
+        ],
+      });
+      await pumpScreen(tester, inProgress());
+
+      await tester.tap(find.text('Junior'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Продолжить'));
+      await tester.pumpAndSettle();
+
+      // Возобновление с индекса 1 при 2 вопросах → заголовок «2 / 2».
+      expect(find.byType(SessionScreen), findsOneWidget);
+      expect(find.text('2 / 2'), findsOneWidget);
+      verifyNever(
+        () => progress.clearIncompleteSession(gradeKey: any(named: 'gradeKey')),
           );
-        });
+        },);
   });
 }
