@@ -16,7 +16,7 @@ class SessionScreen extends StatefulWidget {
     super.key,
     this.initialIndex = 0,
     this.previousAnswers = const [],
-    this.persistIncomplete = true,
+    this.topicTitle,
   });
   final Track track;
   final Grade grade;
@@ -31,10 +31,11 @@ class SessionScreen extends StatefulWidget {
   /// Уже отвеченные вопросы из предыдущей части сессии (для resume).
   final List<AnsweredQuestion> previousAnswers;
 
-  /// Сохранять ли незавершённое состояние в слот грейда.
-  /// false — для коротких тема-дриллов: они не резюмируются и не трогают
-  /// единственный слот незавершённой сессии грейда.
-  final bool persistIncomplete;
+  /// Если задано — это тема-дрилл по [topicTitle]: пауза пишется в тема-слот
+  /// (по названию темы), грейдовый слот не трогается, на финише грейдовая пауза
+  /// не сбрасывается. null — обычная полногрейдовая сессия (пауза в грейдовом
+  /// слоте по gradeKey).
+  final String? topicTitle;
 
   @override
   State<SessionScreen> createState() => _SessionScreenState();
@@ -43,6 +44,9 @@ class SessionScreen extends StatefulWidget {
 class _SessionScreenState extends State<SessionScreen> {
   late final SessionController _controller;
   bool _finishing = false;
+
+  bool get _isTopicDrill => widget.topicTitle != null;
+  String get _gradeKey => '${widget.track.id}_${widget.grade.id}';
 
   @override
   void initState() {
@@ -69,27 +73,31 @@ class _SessionScreenState extends State<SessionScreen> {
 
   /// Сохранить состояние сессии при выходе без завершения.
   void _saveIncompleteSession() {
-    // Тема-дрилл (persistIncomplete: false) не сохраняется и не трогает слот.
-    if (!widget.persistIncomplete) return;
     final c = _controller;
     // Сохраняем только если хотя бы один вопрос отвечен и сессия не завершена.
     if (c.answers.isEmpty || c.answers.length >= c.total) return;
 
     final session = IncompleteSession(
-      gradeKey: '${widget.track.id}_${widget.grade.id}',
+      gradeKey: _gradeKey,
       questionIds: widget.questions.map((q) => q.id).toList(),
       currentIndex: c.answers.length,
       answeredData: c.answers
           .map(
             (a) => AnsweredItemData(
-              id: a.question.id,
-              selected: a.selected.toList(),
-              outcome: a.outcome.name,
-            ),
-          )
+          id: a.question.id,
+          selected: a.selected.toList(),
+          outcome: a.outcome.name,
+        ),
+      )
           .toList(),
+      topicTitle: widget.topicTitle,
     );
-    widget.progress.saveIncompleteSessionSync(session.toJson());
+
+    if (_isTopicDrill) {
+      widget.progress.saveIncompleteTopicSessionSync(session.toJson());
+    } else {
+      widget.progress.saveIncompleteSessionSync(session.toJson());
+    }
   }
 
   void _onNext() {
@@ -97,12 +105,17 @@ class _SessionScreenState extends State<SessionScreen> {
     final hasMore = _controller.next();
     if (!hasMore) {
       _finishing = true;
-      final sessionKey = '${widget.track.id}_${widget.grade.id}';
+      // Тема-дрилл не трогает грейдовую паузу (clearIncomplete: false), но чистит
+      // свой тема-слот; полногрейдовая сессия чистит грейдовый слот.
       widget.progress.recordSession(
-        sessionKey,
+        _gradeKey,
         _controller.result,
-        clearIncomplete: widget.persistIncomplete,
+        clearIncomplete: !_isTopicDrill,
       );
+      if (_isTopicDrill) {
+        widget.progress
+            .clearIncompleteTopicSession(topicTitle: widget.topicTitle);
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
@@ -159,7 +172,7 @@ class _SessionScreenState extends State<SessionScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -182,7 +195,7 @@ class _SessionScreenState extends State<SessionScreen> {
                       const SizedBox(height: 18),
                       ...List.generate(
                         c.current.options.length,
-                        (i) => _optionTile(c, i),
+                            (i) => _optionTile(c, i),
                       ),
                       if (c.answered &&
                           c.current.explanation != null &&
