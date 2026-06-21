@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:interview_helper_system/models/incomplete_session.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/screens/topic_session.dart';
@@ -36,6 +37,10 @@ Track _track({
     Track(id: id, title: title, order: order, grades: grades);
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(<String, Set<String>>{});
+  });
+
   // ===========================================================================
   // TopicProgress — производные значения
   // ===========================================================================
@@ -75,6 +80,7 @@ void main() {
     setUp(() {
       progress = MockProgressService();
       when(() => progress.masteredIds(any(), any())).thenReturn(<String>{});
+      when(() => progress.loadIncompleteTopicSession(any())).thenReturn(null);
     });
 
     test('пустой каталог тем для пустого списка треков', () {
@@ -237,8 +243,7 @@ void main() {
       when(() => progress.masteredIds(any(), any())).thenReturn(<String>{});
     });
 
-    Future<void> pumpStarter(
-      WidgetTester tester, {
+    Future<void> pumpStarter(WidgetTester tester, {
       required List<Track> tracks,
       required String topic,
     }) async {
@@ -267,29 +272,206 @@ void main() {
     }
 
     testWidgets('есть непройденные вопросы темы → открывает SessionScreen',
-        (tester) async {
-      final tracks = [
-        _track(
-          id: 't1',
-          title: 'Аналитика',
-          grades: [
-            _grade(
-              id: 'junior',
-              title: 'Junior',
-              questions: [_q('q1', topic: 'SQL', text: 'JQ')],
-            ),
-          ],
-        ),
-      ];
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'SQL', text: 'JQ')],
+              ),
+            ],
+          ),
+        ];
 
-      await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
 
-      expect(find.byType(SessionScreen), findsOneWidget);
-      expect(find.text('JQ'), findsOneWidget);
-    },);
+        expect(find.byType(SessionScreen), findsOneWidget);
+        expect(find.text('JQ'), findsOneWidget);
+      },
+    );
 
     testWidgets('в сессию попадают только вопросы темы, не весь грейд',
-        (tester) async {
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [
+                  _q('q1', topic: 'SQL', text: 'SQLQ'),
+                  _q('q2', topic: 'ООП', text: 'OOPQ'),
+                ],
+              ),
+            ],
+          ),
+        ];
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        // Всего вопросов в сессии — 1 (только SQL), это видно в заголовке "1 / 1".
+        expect(find.text('1 / 1'), findsOneWidget);
+        expect(find.text('SQLQ'), findsOneWidget);
+        expect(find.text('OOPQ'), findsNothing);
+      },
+    );
+
+    testWidgets('берётся первый грейд по order (junior раньше middle)',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'middle',
+                title: 'Middle',
+                order: 2,
+                questions: [_q('qm', topic: 'SQL', text: 'MQ')],
+              ),
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                order: 1,
+                questions: [_q('qj', topic: 'SQL', text: 'JQ')],
+              ),
+            ],
+          ),
+        ];
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        // Чип сессии: "<трек> · <грейд>". Должен быть Junior, не Middle.
+        expect(find.textContaining('Junior'), findsOneWidget);
+        expect(find.textContaining('Middle'), findsNothing);
+        expect(find.text('JQ'), findsOneWidget);
+      },
+    );
+
+    testWidgets('все вопросы темы пройдены → сессии нет, показан SnackBar',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'SQL')],
+              ),
+            ],
+          ),
+        ];
+        when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.byType(SessionScreen), findsNothing);
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(
+          find.textContaining('не осталось новых вопросов'),
+          findsOneWidget,
+        );
+
+        // Дренируем таймер авто-скрытия SnackBar (иначе pending timer на teardown).
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('темы нет в каталоге → сессии нет, показан SnackBar',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'ООП')],
+              ),
+            ],
+          ),
+        ];
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.byType(SessionScreen), findsNothing);
+        expect(find.byType(SnackBar), findsOneWidget);
+
+        // Дренируем таймер авто-скрытия SnackBar (иначе pending timer на teardown).
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'пауза по теме → диалог; «Продолжить» открывает сессию с места',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [
+                  _q('q1', topic: 'SQL', text: 'Q1'),
+                  _q('q2', topic: 'SQL', text: 'Q2'),
+                ],
+              ),
+            ],
+          ),
+        ];
+        when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
+          const IncompleteSession(
+            gradeKey: 't1_junior',
+            questionIds: ['q1', 'q2'],
+            currentIndex: 1,
+            answeredData: [
+              AnsweredItemData(id: 'q1', selected: [0], outcome: 'correct'),
+            ],
+            topicTitle: 'SQL',
+          ).toJson(),
+        );
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.text('Незавершённая тема'), findsOneWidget);
+        await tester.tap(find.text('Продолжить'));
+        await tester.pumpAndSettle();
+
+        // Восстановлен индекс 1 → «2 / 2», текущий вопрос второй.
+        expect(find.byType(SessionScreen), findsOneWidget);
+        expect(find.text('2 / 2'), findsOneWidget);
+        expect(find.text('Q2'), findsOneWidget);
+      },
+    );
+  });
+
+  // ===========================================================================
+  // resetTopic — сброс мастеринга темы по всему каталогу
+  // ===========================================================================
+  group('resetTopic', () {
+    test('снимает мастеринг вопросов темы по всем грейдам и чистит паузу',
+        () async {
+      final progress = MockProgressService();
+      when(() => progress.resetMastered(any())).thenAnswer((_) async {});
+      when(
+        () => progress.clearIncompleteTopicSession(
+          topicTitle: any(named: 'topicTitle'),
+        ),
+      ).thenAnswer((_) async {});
+
       final tracks = [
         _track(
           id: 't1',
@@ -299,105 +481,29 @@ void main() {
               id: 'junior',
               title: 'Junior',
               questions: [
-                _q('q1', topic: 'SQL', text: 'SQLQ'),
-                _q('q2', topic: 'ООП', text: 'OOPQ'),
+                _q('q1', topic: 'SQL'),
+                _q('q2', topic: 'ООП'),
               ],
             ),
-          ],
-        ),
-      ];
-
-      await pumpStarter(tester, tracks: tracks, topic: 'SQL');
-
-      // Всего вопросов в сессии — 1 (только SQL), это видно в заголовке "1 / 1".
-      expect(find.text('1 / 1'), findsOneWidget);
-      expect(find.text('SQLQ'), findsOneWidget);
-      expect(find.text('OOPQ'), findsNothing);
-    },);
-
-    testWidgets('берётся первый грейд по order (junior раньше middle)',
-        (tester) async {
-      final tracks = [
-        _track(
-          id: 't1',
-          title: 'Аналитика',
-          grades: [
             _grade(
               id: 'middle',
               title: 'Middle',
-              order: 2,
-              questions: [_q('qm', topic: 'SQL', text: 'MQ')],
-            ),
-            _grade(
-              id: 'junior',
-              title: 'Junior',
-              order: 1,
-              questions: [_q('qj', topic: 'SQL', text: 'JQ')],
+              questions: [_q('q3', topic: 'SQL')],
             ),
           ],
         ),
       ];
 
-      await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+      await resetTopic(tracks, progress, 'SQL');
 
-      // Чип сессии: "<трек> · <грейд>". Должен быть Junior, не Middle.
-      expect(find.textContaining('Junior'), findsOneWidget);
-      expect(find.textContaining('Middle'), findsNothing);
-      expect(find.text('JQ'), findsOneWidget);
-    },);
-
-    testWidgets('все вопросы темы пройдены → сессии нет, показан SnackBar',
-        (tester) async {
-      final tracks = [
-        _track(
-          id: 't1',
-          title: 'Аналитика',
-          grades: [
-            _grade(
-              id: 'junior',
-              title: 'Junior',
-              questions: [_q('q1', topic: 'SQL')],
-            ),
-          ],
-        ),
-      ];
-      when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
-
-      await pumpStarter(tester, tracks: tracks, topic: 'SQL');
-
-      expect(find.byType(SessionScreen), findsNothing);
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(find.textContaining('пройдены'), findsOneWidget);
-
-      // Дренируем таймер авто-скрытия SnackBar (иначе pending timer на teardown).
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
-    },);
-
-    testWidgets('темы нет в каталоге → сессии нет, показан SnackBar',
-        (tester) async {
-      final tracks = [
-        _track(
-          id: 't1',
-          title: 'Аналитика',
-          grades: [
-            _grade(
-              id: 'junior',
-              title: 'Junior',
-              questions: [_q('q1', topic: 'ООП')],
-            ),
-          ],
-        ),
-      ];
-
-      await pumpStarter(tester, tracks: tracks, topic: 'SQL');
-
-      expect(find.byType(SessionScreen), findsNothing);
-      expect(find.byType(SnackBar), findsOneWidget);
-
-      // Дренируем таймер авто-скрытия SnackBar (иначе pending timer на teardown).
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
-    },);
+      final captured = verify(() => progress.resetMastered(captureAny()))
+          .captured
+          .single as Map<String, Set<String>>;
+      expect(captured['t1_junior'], {'q1'}); // q2 (ООП) исключён
+      expect(captured['t1_middle'], {'q3'});
+      verify(
+        () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
+      ).called(1);
+    });
   });
 }

@@ -51,11 +51,16 @@ void main() {
   late MockQuestionRepository repo;
   late MockProgressService progress;
 
+  setUpAll(() {
+    registerFallbackValue(<String, Set<String>>{});
+  });
+
   setUp(() {
     repo = MockQuestionRepository();
     progress = MockProgressService();
     when(() => progress.masteredIds(any(), any())).thenReturn(<String>{});
     when(() => progress.loadIncompleteSession(any())).thenReturn(null);
+    when(() => progress.loadIncompleteTopicSession(any())).thenReturn(null);
   });
 
   Future<void> pumpTopics(WidgetTester tester) {
@@ -76,144 +81,188 @@ void main() {
 
   // === Загрузка → пусто ====================================================
   testWidgets('идёт загрузка — спиннер; вопросов нет → пустое состояние',
-      (tester) async {
-    final completer = Completer<List<Track>>();
-    when(() => repo.loadTracks()).thenAnswer((_) => completer.future);
+    (tester) async {
+      final completer = Completer<List<Track>>();
+      when(() => repo.loadTracks()).thenAnswer((_) => completer.future);
 
-    await pumpTopics(tester);
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await pumpTopics(tester);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    completer.complete(<Track>[]);
-    await tester.pumpAndSettle();
+      completer.complete(<Track>[]);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Тем пока нет'), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-      },);
+      expect(find.text('Тем пока нет'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 
   testWidgets('треки есть, но без тем у вопросов → пустое состояние',
-          (tester) async {
-        when(() => repo.loadTracks()).thenAnswer(
-              (_) async =>
-          [
-            oneGradeTrack([_q('q1'), _q('q2')]), // topic == null
-          ],
-        );
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          oneGradeTrack([_q('q1'), _q('q2')]), // topic == null
+        ],
+      );
 
-        await pumpTopics(tester);
-        await tester.pumpAndSettle();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
 
-        expect(find.text('Тем пока нет'), findsOneWidget);
-      },);
+      expect(find.text('Тем пока нет'), findsOneWidget);
+    },
+  );
 
   // === Ошибка + повтор =====================================================
   testWidgets('ошибка показывает экран ошибки; повтор грузит заново',
-      (tester) async {
-    var calls = 0;
-    when(() => repo.loadTracks()).thenAnswer((_) async {
-      calls++;
-      if (calls == 1) throw Exception('boom');
-      return [
-        oneGradeTrack([_q('q1', topic: 'SQL')]),
-      ];
-    });
+    (tester) async {
+      var calls = 0;
+      when(() => repo.loadTracks()).thenAnswer((_) async {
+        calls++;
+        if (calls == 1) throw Exception('boom');
+        return [
+          oneGradeTrack([_q('q1', topic: 'SQL')]),
+        ];
+      });
 
-    await pumpTopics(tester);
-        await tester.pumpAndSettle();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Не удалось загрузить темы'), findsOneWidget);
-    expect(find.text('Попробовать снова'), findsOneWidget);
+      expect(find.text('Не удалось загрузить темы'), findsOneWidget);
+      expect(find.text('Попробовать снова'), findsOneWidget);
 
-    await tester.tap(find.text('Попробовать снова'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Попробовать снова'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('SQL'), findsOneWidget);
-    expect(find.text('Не удалось загрузить темы'), findsNothing);
-  },);
+      expect(find.text('SQL'), findsOneWidget);
+      expect(find.text('Не удалось загрузить темы'), findsNothing);
+    },
+  );
 
   // === Список тем: группировка, счётчики, порядок ==========================
   testWidgets('группирует вопросы по теме, считает mastered/total',
-      (tester) async {
-    when(() => repo.loadTracks()).thenAnswer(
-      (_) async => [
-        oneGradeTrack([
-          _q('q1', topic: 'SQL'),
-          _q('q2', topic: 'SQL'),
-          _q('q3', topic: 'БД'),
-        ]),
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          oneGradeTrack([
+            _q('q1', topic: 'SQL'),
+            _q('q2', topic: 'SQL'),
+            _q('q3', topic: 'БД'),
+          ]),
+        ],
+      );
+      when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
 
-      ],
-    );
-    when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
 
-    await pumpTopics(tester);
-        await tester.pumpAndSettle();
+      expect(find.text('SQL'), findsOneWidget);
+      expect(find.text('БД'), findsOneWidget);
+      expect(find.text('1/2'), findsOneWidget); // SQL: q1 освоен из q1,q2
+      expect(find.text('0/1'), findsOneWidget); // БД: q3 не освоен
+      expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
 
-    expect(find.text('SQL'), findsOneWidget);
-    expect(find.text('БД'), findsOneWidget);
-    expect(find.text('1/2'), findsOneWidget); // SQL: q1 освоен из q1,q2
-    expect(find.text('0/1'), findsOneWidget); // БД: q3 не освоен
-    expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
+      // Порядок — по первому появлению темы: SQL раньше БД.
+      final dySql = tester.getTopLeft(find.text('SQL')).dy;
+      final dyDb = tester.getTopLeft(find.text('БД')).dy;
+      expect(dySql, lessThan(dyDb));
+    },
+  );
 
-    // Порядок — по первому появлению темы: SQL раньше БД.
-        final dySql = tester
-            .getTopLeft(find.text('SQL'))
-            .dy;
-        final dyDb = tester
-            .getTopLeft(find.text('БД'))
-            .dy;
-        expect(dySql, lessThan(dyDb));
-      },);
+  testWidgets(
+    'полностью пройденная тема показывает «Все пройдены» + сброс',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          oneGradeTrack([_q('q1', topic: 'SQL')]),
+        ],
+      );
+      when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
 
-  testWidgets('полностью пройденная тема показывает галочку вместо счётчика',
-      (tester) async {
-    when(() => repo.loadTracks()).thenAnswer(
-      (_) async => [
-        oneGradeTrack([_q('q1', topic: 'SQL')]),
-      ],
-    );
-    when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
 
-    await pumpTopics(tester);
-        await tester.pumpAndSettle();
-
-    expect(find.byIcon(Icons.check_circle), findsOneWidget);
-    expect(find.text('1/1'), findsNothing);
-  },);
+      expect(find.text('Все пройдены'), findsOneWidget);
+      expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsNothing);
+      expect(find.text('1/1'), findsNothing);
+    },
+  );
 
   // === Навигация ===========================================================
   testWidgets('тап по теме с непройденными вопросами открывает SessionScreen',
-      (tester) async {
-    when(() => repo.loadTracks()).thenAnswer(
-      (_) async => [
-        oneGradeTrack([_q('q1', topic: 'SQL')]),
-      ],
-    );
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          oneGradeTrack([_q('q1', topic: 'SQL')]),
+        ],
+      );
 
-    await pumpTopics(tester);
-        await tester.pumpAndSettle();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('SQL'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('SQL'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(SessionScreen), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      },);
+      expect(find.byType(SessionScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('тап по полностью пройденной теме не открывает сессию',
-      (tester) async {
-    when(() => repo.loadTracks()).thenAnswer(
-      (_) async => [
-        oneGradeTrack([_q('q1', topic: 'SQL')]),
-      ],
-    );
-    when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
+  testWidgets(
+    'тап по пройденной теме ведёт в сброс (диалог), не в сессию',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          oneGradeTrack([_q('q1', topic: 'SQL')]),
+        ],
+      );
+      when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
 
-    await pumpTopics(tester);
-        await tester.pumpAndSettle();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('SQL'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('SQL'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(SessionScreen), findsNothing);
-      },);
+      expect(find.byType(SessionScreen), findsNothing);
+      expect(find.text('Сбросить тему?'), findsOneWidget);
+
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  // === Сброс темы ==========================================================
+  testWidgets(
+    'иконка сброса у частичной темы → подтверждение → сброс',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          oneGradeTrack([_q('q1', topic: 'SQL'), _q('q2', topic: 'SQL')]),
+        ],
+      );
+      // Частично пройдена → есть иконка сброса рядом со счётчиком.
+      when(() => progress.masteredIds('t1', 'junior')).thenReturn({'q1'});
+      when(() => progress.resetMastered(any())).thenAnswer((_) async {});
+      when(
+        () => progress.clearIncompleteTopicSession(
+          topicTitle: any(named: 'topicTitle'),
+        ),
+      ).thenAnswer((_) async {});
+
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pumpAndSettle();
+      expect(find.text('Сбросить тему?'), findsOneWidget);
+
+      await tester.tap(find.text('Сбросить'));
+      await tester.pumpAndSettle();
+
+      verify(() => progress.resetMastered(any())).called(1);
+      verify(
+        () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
+      ).called(1);
+    },
+  );
 }
