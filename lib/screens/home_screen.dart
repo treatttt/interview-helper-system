@@ -158,8 +158,24 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
 
   // ── Weak topics ─────────────────────────────────────────────────────────
 
+  /// Названия тем, у которых освоены все вопросы каталога.
+  Set<String> _fullyMasteredTopicTitles() {
+    if (tracks.isEmpty) return const {};
+    return {
+      for (final t in buildTopicCatalog(tracks, widget.progress))
+        if (t.allMastered) t.title,
+    };
+  }
+
   Widget _weakTopicsSection() {
-    final topics = widget.progress.weakestTopics();
+    // Прячем полностью проработанные темы: тыкать их в дрилле некуда
+    // (непройденных вопросов нет), и это снимает противоречие «слабая по
+    // точности, но уже пройдена по освоенности».
+    final masteredTitles = _fullyMasteredTopicTitles();
+    final topics = widget.progress
+        .weakestTopics()
+        .where((t) => !masteredTitles.contains(t.title))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
