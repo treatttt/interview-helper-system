@@ -25,7 +25,16 @@ class _TopicCount {
 }
 
 /// Хранит прогресс пользователя: XP, streak, освоенные вопросы по грейдам,
-/// статистику ответов по темам, незавершённую сессию (один слот).
+/// статистику ответов по темам, незавершённую сессию.
+///
+/// Слоты незавершённых сессий два и независимы:
+///   • грейдовый ([_kIncompleteSession]) — одна пауза полногрейдовой сессии,
+///     ключуется по gradeKey;
+///   • тема-слот ([_kIncompleteTopicSession]) — одна пауза тема-дрилла,
+///     ключуется по названию темы.
+/// Раздельность нужна, чтобы хождение по темам не затирало паузу грейда
+/// (и наоборот): тема-дрилл крутится под реальным gradeKey, и общий слот
+/// перетирал бы полногрейдовую паузу того же грейда.
 /// Данные переживают перезапуск приложения.
 class ProgressService extends ChangeNotifier {
   ProgressService({DateTime Function()? clock})
@@ -35,6 +44,7 @@ class ProgressService extends ChangeNotifier {
   static const _kLastDay = 'last_active_day';
   static const _kMasteredIds = 'mastered_ids'; // Map<gradeKey, List<questionId>>
   static const _kIncompleteSession = 'incomplete_session';
+  static const _kIncompleteTopicSession = 'incomplete_topic_session';
   static const _kOnboardingDone = 'onboarding_done';
   static const _kTopicStats = 'topic_stats'; // Map<topic, {attempts, correct}>
 
@@ -47,6 +57,7 @@ class ProgressService extends ChangeNotifier {
   String? _lastActiveDay;
   Map<String, Set<String>> _masteredIds = {}; // gradeKey → Set<questionId>
   Map<String, Object?>? _incompleteSession;
+  Map<String, Object?>? _incompleteTopicSession;
   bool _onboardingDone = false;
   Map<String, _TopicCount> _topicStats = {}; // topic → counts
 
@@ -77,11 +88,11 @@ class ProgressService extends ChangeNotifier {
         .where((e) => e.value.attempts >= minAttempts)
         .map(
           (e) => TopicStat(
-            title: e.key,
-            attempts: e.value.attempts,
-            correct: e.value.correct,
-          ),
-        )
+        title: e.key,
+        attempts: e.value.attempts,
+        correct: e.value.correct,
+      ),
+    )
         .toList()
       ..sort((a, b) => a.accuracy.compareTo(b.accuracy));
     return stats.take(limit).toList();
@@ -109,7 +120,8 @@ class ProgressService extends ChangeNotifier {
     _onboardingDone = _prefs.getBool(_kOnboardingDone) ?? false;
     _masteredIds = _readMasteredIds();
     _topicStats = _readTopicStats();
-    _incompleteSession = _readIncompleteSession();
+    _incompleteSession = _readSlot(_kIncompleteSession);
+    _incompleteTopicSession = _readSlot(_kIncompleteTopicSession);
     notifyListeners();
   }
 
@@ -155,8 +167,8 @@ class ProgressService extends ChangeNotifier {
     }
   }
 
-  Map<String, Object?>? _readIncompleteSession() {
-    final raw = _prefs.getString(_kIncompleteSession);
+  Map<String, Object?>? _readSlot(String key) {
+    final raw = _prefs.getString(key);
     if (raw == null) return null;
     try {
       final decoded = json.decode(raw);
@@ -170,14 +182,15 @@ class ProgressService extends ChangeNotifier {
   /// Записать итог завершённой сессии: начислить XP за новые ID, обновить streak
   /// и обновить статистику точности по темам из [result.answers].
   ///
-  /// [clearIncomplete] — сбрасывать ли слот незавершённой сессии этого грейда.
-  /// false передаёт тема-дрилл: он не должен затирать паузу полногрейдовой
-  /// сессии, лежащую под тем же ключом.
+  /// [clearIncomplete] — сбрасывать ли грейдовый слот незавершённой сессии этого
+  /// грейда. false передаёт тема-дрилл: он не должен затирать паузу
+  /// полногрейдовой сессии, лежащую под тем же gradeKey (свой тема-слот он
+  /// чистит сам через [clearIncompleteTopicSession]).
   Future<void> recordSession(
-    String gradeKey,
-    SessionResult result, {
-    bool clearIncomplete = true,
-  }) async {
+      String gradeKey,
+      SessionResult result, {
+        bool clearIncomplete = true,
+      }) async {
     final existing = _masteredIds[gradeKey] ?? const <String>{};
     final gained = result.correctIds.difference(existing);
 
@@ -195,7 +208,7 @@ class ProgressService extends ChangeNotifier {
       if (a.outcome == AnswerOutcome.correct) count.correct++;
     }
 
-    // Сессия завершена — слот незавершённой сессии для этого грейда сбрасывается.
+    // Сессия завершена — грейдовый слот для этого грейда сбрасывается.
     if (clearIncomplete && _incompleteSession?['gradeKey'] == gradeKey) {
       _incompleteSession = null;
       await _prefs.remove(_kIncompleteSession);
@@ -205,6 +218,8 @@ class ProgressService extends ChangeNotifier {
     await _save();
     notifyListeners();
   }
+
+  // ── Грейдовый слот незавершённой сессии ───────────────────────────────────
 
   /// Вернуть сохранённую незавершённую сессию для gradeKey, или null.
   Map<String, Object?>? loadIncompleteSession(String gradeKey) {
@@ -236,6 +251,36 @@ class ProgressService extends ChangeNotifier {
     await _prefs.remove(_kIncompleteSession);
   }
 
+  // ── Тема-слот незавершённого дрилла ────────────────────────────────────────
+
+  /// Вернуть сохранённую паузу тема-дрилла для [topicTitle], или null.
+  Map<String, Object?>? loadIncompleteTopicSession(String topicTitle) {
+    final s = _incompleteTopicSession;
+    if (s == null || s['topicTitle'] != topicTitle) return null;
+    return s;
+  }
+
+  /// Сохранить паузу тема-дрилла (синхронно в память, асинхронно на диск).
+  /// Вызывается из dispose() — не должен блокировать.
+  void saveIncompleteTopicSessionSync(Map<String, Object?> data) {
+    _incompleteTopicSession = data;
+    // ignore: discarded_futures
+    _prefs.setString(_kIncompleteTopicSession, json.encode(data));
+  }
+
+  /// Очистить паузу тема-дрилла. [topicTitle] — только для этой темы;
+  /// если null — безусловно.
+  Future<void> clearIncompleteTopicSession({String? topicTitle}) async {
+    if (topicTitle != null &&
+        _incompleteTopicSession?['topicTitle'] != topicTitle) {
+      return;
+    }
+    _incompleteTopicSession = null;
+    await _prefs.remove(_kIncompleteTopicSession);
+  }
+
+  // ── Сбросы прогресса ──────────────────────────────────────────────────────
+
   /// Сбросить прогресс грейда: очистить освоенные вопросы и незавершённую сессию.
   Future<void> resetGrade(String trackId, String gradeId) async {
     final key = '${trackId}_$gradeId';
@@ -244,6 +289,28 @@ class ProgressService extends ChangeNotifier {
       _incompleteSession = null;
       await _prefs.remove(_kIncompleteSession);
     }
+    await _save();
+    notifyListeners();
+  }
+
+  /// Снять отметку «освоено» с конкретных вопросов внутри грейдов.
+  /// [idsByGradeKey]: gradeKey → questionId, которые нужно вернуть в пул.
+  ///
+  /// Грейдовый слот незавершённой сессии не трогаем — сохранённая пауза
+  /// реплеит своё подмножество вопросов и от снятия мастеринга не ломается.
+  /// Тема-слот тоже не трогаем здесь — это делает вызывающий [resetTopic],
+  /// который знает тему.
+  Future<void> resetMastered(Map<String, Set<String>> idsByGradeKey) async {
+    var changed = false;
+    idsByGradeKey.forEach((key, ids) {
+      final inner = _masteredIds[key];
+      if (inner == null || ids.isEmpty) return;
+      final before = inner.length;
+      inner.removeAll(ids);
+      if (inner.length != before) changed = true;
+      if (inner.isEmpty) _masteredIds.remove(key);
+    });
+    if (!changed) return;
     await _save();
     notifyListeners();
   }
@@ -275,7 +342,7 @@ class ProgressService extends ChangeNotifier {
     await _prefs.setString(_kMasteredIds, json.encode(serialized));
 
     final topicSerialized = _topicStats.map(
-      (k, v) => MapEntry(k, {'attempts': v.attempts, 'correct': v.correct}),
+          (k, v) => MapEntry(k, {'attempts': v.attempts, 'correct': v.correct}),
     );
     await _prefs.setString(_kTopicStats, json.encode(topicSerialized));
   }

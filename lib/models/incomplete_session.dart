@@ -1,10 +1,15 @@
 /// Типизированное состояние незавершённой сессии.
+///
+/// Один и тот же тип обслуживает два независимых слота в [ProgressService]:
+///   • грейдовый слот — полногрейдовая сессия ([topicTitle] == null), ключ gradeKey;
+///   • тема-слот — пауза тема-дрилла ([topicTitle] != null), ключ — название темы.
 class IncompleteSession {
   const IncompleteSession({
     required this.gradeKey,
     required this.questionIds,
     required this.currentIndex,
     required this.answeredData,
+    this.topicTitle,
   });
 
   factory IncompleteSession.fromJson(Map<String, Object?> json) =>
@@ -15,10 +20,11 @@ class IncompleteSession {
         answeredData: (json['answeredData']! as List)
             .map(
               (e) => AnsweredItemData.fromJson(
-                (e as Map).cast<String, Object?>(),
-              ),
-            )
+            (e as Map).cast<String, Object?>(),
+          ),
+        )
             .toList(),
+        topicTitle: json['topicTitle'] as String?,
       );
 
   final String gradeKey;
@@ -26,12 +32,18 @@ class IncompleteSession {
   final int currentIndex;
   final List<AnsweredItemData> answeredData;
 
+  /// Тема, если это пауза тема-дрилла; null — для полногрейдовой сессии.
+  /// В JSON ключ пишется только когда задан, чтобы грейдовая запись осталась
+  /// байт-в-байт совместимой со старым форматом хранилища.
+  final String? topicTitle;
+
   Map<String, Object?> toJson() => {
-        'gradeKey': gradeKey,
-        'questionIds': questionIds,
-        'currentIndex': currentIndex,
-        'answeredData': answeredData.map((a) => a.toJson()).toList(),
-      };
+    'gradeKey': gradeKey,
+    'questionIds': questionIds,
+    'currentIndex': currentIndex,
+    'answeredData': answeredData.map((a) => a.toJson()).toList(),
+    if (topicTitle != null) 'topicTitle': topicTitle,
+  };
 }
 
 /// Сериализованный одиночный ответ внутри незавершённой сессии.
@@ -54,8 +66,8 @@ class AnsweredItemData {
   final String outcome;
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'selected': selected,
-        'outcome': outcome,
-      };
+    'id': id,
+    'selected': selected,
+    'outcome': outcome,
+  };
 }
