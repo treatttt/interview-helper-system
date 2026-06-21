@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/models/incomplete_session.dart';
@@ -254,11 +256,13 @@ void main() {
             body: Builder(
               builder: (context) => Center(
                 child: ElevatedButton(
-                  onPressed: () => startTopicSession(
-                    context,
-                    tracks: tracks,
-                    progress: progress,
-                    topicTitle: topic,
+                  onPressed: () => unawaited(
+                    startTopicSession(
+                      context,
+                      tracks: tracks,
+                      progress: progress,
+                      topicTitle: topic,
+                    ),
                   ),
                   child: const Text('go'),
                 ),
