@@ -502,6 +502,144 @@ void main() {
         expect(find.text('Q2'), findsOneWidget);
       },
     );
+
+    // ── Протухшая пауза: три причины, по которым _resumeArgs → null ──────────
+    // Везде: диалога продолжения нет, тема-слот вычищается, идёт свежий старт.
+    // Покрывают _findGrade(null), _restoreAnswers(null) и расхождение по числу
+    // вопросов.
+
+    testWidgets(
+      'протухла (грейд из gradeKey исчез) → без диалога, слот чистится',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'SQL', text: 'Q1')],
+              ),
+            ],
+          ),
+        ];
+        when(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        ).thenAnswer((_) async {});
+        when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
+          const IncompleteSession(
+            gradeKey: 't9_gone',
+            // такого грейда нет → _findGrade вернёт null
+            questionIds: ['q1'],
+            currentIndex: 0,
+            answeredData: <AnsweredItemData>[],
+            topicTitle: 'SQL',
+          ).toJson(),
+        );
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.text('Незавершённая тема'), findsNothing);
+        verify(
+          () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
+        ).called(1);
+        expect(find.byType(SessionScreen), findsOneWidget);
+        expect(find.text('Q1'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'протухла (отвеченный вопрос исчез) → без диалога, слот чистится',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                // q1 удалён из каталога, остался только q2
+                questions: [_q('q2', topic: 'SQL', text: 'Q2')],
+              ),
+            ],
+          ),
+        ];
+        when(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        ).thenAnswer((_) async {});
+        when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
+          const IncompleteSession(
+            gradeKey: 't1_junior',
+            questionIds: ['q2'],
+            // вопрос на месте, число совпадает
+            currentIndex: 1,
+            answeredData: [
+              // а отвеченный q1 уже отсутствует → _restoreAnswers null
+              AnsweredItemData(id: 'q1', selected: [0], outcome: 'correct'),
+            ],
+            topicTitle: 'SQL',
+          ).toJson(),
+        );
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.text('Незавершённая тема'), findsNothing);
+        verify(
+          () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
+        ).called(1);
+        expect(find.byType(SessionScreen), findsOneWidget);
+        expect(find.text('Q2'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'протухла (не все вопросы паузы есть в грейде) → без диалога, чистится',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'SQL', text: 'Q1')], // q2 нет
+              ),
+            ],
+          ),
+        ];
+        when(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        ).thenAnswer((_) async {});
+        when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
+          const IncompleteSession(
+            gradeKey: 't1_junior',
+            questionIds: ['q1', 'q2'],
+            // q2 в каталоге нет → length != length
+            currentIndex: 0,
+            answeredData: <AnsweredItemData>[],
+            topicTitle: 'SQL',
+          ).toJson(),
+        );
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.text('Незавершённая тема'), findsNothing);
+        verify(
+          () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
+        ).called(1);
+        expect(find.byType(SessionScreen), findsOneWidget);
+        expect(find.text('Q1'), findsOneWidget);
+      },
+    );
   });
 
   // ===========================================================================
@@ -519,37 +657,37 @@ void main() {
       ).thenAnswer((_) async {});
 
       final tracks = [
-        _track(
-          id: 't1',
-          title: 'Аналитика',
-          grades: [
-            _grade(
-              id: 'junior',
-              title: 'Junior',
-              questions: [
-                _q('q1', topic: 'SQL'),
-                _q('q2', topic: 'ООП'),
+            _track(
+              id: 't1',
+              title: 'Аналитика',
+              grades: [
+                _grade(
+                  id: 'junior',
+                  title: 'Junior',
+                  questions: [
+                    _q('q1', topic: 'SQL'),
+                    _q('q2', topic: 'ООП'),
+                  ],
+                ),
+                _grade(
+                  id: 'middle',
+                  title: 'Middle',
+                  questions: [_q('q3', topic: 'SQL')],
+                ),
               ],
             ),
-            _grade(
-              id: 'middle',
-              title: 'Middle',
-              questions: [_q('q3', topic: 'SQL')],
-            ),
-          ],
-        ),
-      ];
+          ];
 
       await resetTopic(tracks, progress, 'SQL');
 
       final captured = verify(() => progress.resetMastered(captureAny()))
-          .captured
-          .single as Map<String, Set<String>>;
-      expect(captured['t1_junior'], {'q1'}); // q2 (ООП) исключён
-      expect(captured['t1_middle'], {'q3'});
-      verify(
-        () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
-      ).called(1);
-    });
+              .captured
+              .single as Map<String, Set<String>>;
+          expect(captured['t1_junior'], {'q1'}); // q2 (ООП) исключён
+          expect(captured['t1_middle'], {'q3'});
+          verify(
+                () => progress.clearIncompleteTopicSession(topicTitle: 'SQL'),
+          ).called(1);
+        },);
   });
 }
