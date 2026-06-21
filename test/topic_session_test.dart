@@ -354,6 +354,52 @@ void main() {
       },
     );
 
+    testWidgets(
+      'пауза по теме → диалог; barrier dismiss (null) → нет сессии, пауза не очищена',
+      (tester) async {
+        final tracks = [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q('q1', topic: 'SQL', text: 'Q1')],
+              ),
+            ],
+          ),
+        ];
+        when(() => progress.loadIncompleteTopicSession('SQL')).thenReturn(
+          const IncompleteSession(
+            gradeKey: 't1_junior',
+            questionIds: ['q1'],
+            currentIndex: 0,
+            answeredData: <AnsweredItemData>[],
+            topicTitle: 'SQL',
+          ).toJson(),
+        );
+        when(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        ).thenAnswer((_) async {});
+
+        await pumpStarter(tester, tracks: tracks, topic: 'SQL');
+
+        expect(find.text('Незавершённая тема'), findsOneWidget);
+        tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SessionScreen), findsNothing);
+        verifyNever(
+          () => progress.clearIncompleteTopicSession(
+            topicTitle: any(named: 'topicTitle'),
+          ),
+        );
+      },
+    );
+
     testWidgets('все вопросы темы пройдены → сессии нет, показан SnackBar',
       (tester) async {
         final tracks = [

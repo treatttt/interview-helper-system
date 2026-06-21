@@ -83,7 +83,7 @@ class ProgressService extends ChangeNotifier {
 
   /// Топ-N самых слабых тем среди тех, где ≥ [minAttempts] попыток.
   /// Отсортированы по точности по возрастанию (сначала слабейшие).
-  List<TopicStat> weakestTopics({int limit = 3, int minAttempts = 3}) {
+  List<TopicStat> weakestTopics({int limit = 3, int minAttempts = 1}) {
     final stats = _topicStats.entries
         .where((e) => e.value.attempts >= minAttempts)
         .map(
@@ -199,14 +199,22 @@ class ProgressService extends ChangeNotifier {
       _masteredIds[gradeKey] = {...existing, ...result.correctIds};
     }
 
-    // Обновляем статистику по темам из детальных ответов сессии.
+    // Обновляем статистику по темам: перезапись результатами этой сессии.
+    // Темы, встреченные в сессии, получают счётчики только этого прохода —
+    // свежий хороший результат не «тонет» в накопленных старых ответах.
+    // Темы, которых в сессии не было, не трогаем: их статистика хранится
+    // от их последнего прохода.
+    final sessionStats = <String, _TopicCount>{};
     for (final a in result.answers) {
       final topic = a.question.topic;
       if (topic == null || topic.isEmpty) continue;
-      final count = _topicStats.putIfAbsent(topic, () => _TopicCount(0, 0));
+      final count = sessionStats.putIfAbsent(topic, () => _TopicCount(0, 0));
       count.attempts++;
       if (a.outcome == AnswerOutcome.correct) count.correct++;
     }
+    sessionStats.forEach((topic, count) {
+      _topicStats[topic] = count;
+    });
 
     // Сессия завершена — грейдовый слот для этого грейда сбрасывается.
     if (clearIncomplete && _incompleteSession?['gradeKey'] == gradeKey) {

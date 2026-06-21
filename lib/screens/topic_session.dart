@@ -147,7 +147,9 @@ Future<bool> _maybeResumeTopic(
   final choice = await _showTopicResumeDialog(context, paused);
   if (!context.mounted) return true;
 
+  if (choice == null) return true; // barrier/back dismiss → cancel, keep pause
   if (choice != 'continue') {
+    // 'restart': explicit user choice — clear saved topic session
     await progress.clearIncompleteTopicSession(topicTitle: topicTitle);
     return false;
   }
@@ -258,6 +260,7 @@ Future<String?> _showTopicResumeDialog(
   final total = paused.questionIds.length;
   return showDialog<String>(
     context: context,
+    barrierDismissible: false,
     builder: (ctx) => AlertDialog(
       title: const Text('Незавершённая тема'),
       content: Text('Вы остановились на вопросе ${answered + 1} из $total.'),

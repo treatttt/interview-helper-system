@@ -185,20 +185,73 @@ void main() {
       expect(p.overallAccuracy, 0.0);
     });
 
-    test('weakestTopics фильтрует темы ниже порога minAttempts', () async {
-      final p = await freshService();
-      // SQL — 2 попытки (ниже порога 3)
-      await p.recordSession(
-        't1',
-        resWithAnswers([
-          answered(q('q1', topic: 'SQL'), AnswerOutcome.wrong),
-          answered(q('q2', topic: 'SQL'), AnswerOutcome.wrong),
-        ]),
-      );
-      expect(p.weakestTopics(), isEmpty);
-      // Порог 2 — тема появляется.
-      expect(p.weakestTopics(minAttempts: 2), hasLength(1));
-    });
+    test(
+      'weakestTopics фильтрует темы ниже явного порога minAttempts',
+      () async {
+        final p = await freshService();
+        // SQL — 2 попытки.
+        await p.recordSession(
+          't1',
+          resWithAnswers([
+            answered(q('q1', topic: 'SQL'), AnswerOutcome.wrong),
+            answered(q('q2', topic: 'SQL'), AnswerOutcome.wrong),
+          ]),
+        );
+        // Явный порог 3 — тема не появляется (2 < 3).
+        expect(p.weakestTopics(minAttempts: 3), isEmpty);
+        // Явный порог 2 — тема появляется.
+        expect(p.weakestTopics(minAttempts: 2), hasLength(1));
+        // Дефолт (minAttempts=1) — тема тоже появляется.
+        expect(p.weakestTopics(), hasLength(1));
+      },
+    );
+
+    test(
+      'тема с одной попыткой появляется в weakestTopics (порог 1)',
+      () async {
+        final p = await freshService();
+        await p.recordSession(
+          't1',
+          resWithAnswers([
+            answered(q('q1', topic: 'SQL'), AnswerOutcome.wrong),
+          ]),
+        );
+        final topics = p.weakestTopics();
+        expect(topics, hasLength(1));
+        expect(topics.single.title, 'SQL');
+      },
+    );
+
+    test(
+      'тема пройдена дважды — weakestTopics отражает результат последней сессии',
+      () async {
+        final p = await freshService();
+        // Первая сессия: 1 верный из 4.
+        await p.recordSession(
+          't1',
+          resWithAnswers([
+            answered(q('q1', topic: 'SQL'), AnswerOutcome.correct),
+            answered(q('q2', topic: 'SQL'), AnswerOutcome.wrong),
+            answered(q('q3', topic: 'SQL'), AnswerOutcome.wrong),
+            answered(q('q4', topic: 'SQL'), AnswerOutcome.wrong),
+          ]),
+        );
+        // Вторая сессия: 2 верных из 2.
+        await p.recordSession(
+          't1',
+          resWithAnswers([
+            answered(q('q5', topic: 'SQL'), AnswerOutcome.correct),
+            answered(q('q6', topic: 'SQL'), AnswerOutcome.correct),
+          ]),
+        );
+        // Должна отражать последнюю сессию: 2/2, а не накопленные 3/6.
+        final topics = p.weakestTopics();
+        expect(topics, hasLength(1));
+        expect(topics.single.attempts, 2);
+        expect(topics.single.correct, 2);
+        expect(topics.single.accuracy, 1.0);
+      },
+    );
 
     test('weakestTopics сортирует по точности по возрастанию', () async {
       final p = await freshService();

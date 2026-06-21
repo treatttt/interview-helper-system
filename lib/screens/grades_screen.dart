@@ -48,6 +48,7 @@ class _GradesScreenState extends State<GradesScreen> {
         final choice = await _showResumeDialog(incomplete);
         if (!mounted) return;
 
+        if (choice == null) return; // barrier/back dismiss → cancel silently
         if (choice == 'continue') {
           final questionMap = {for (final q in grade.questions) q.id: q};
           sessionQuestions = incomplete.questionIds
@@ -66,6 +67,7 @@ class _GradesScreenState extends State<GradesScreen> {
             );
           }).toList();
         } else {
+          // 'restart': explicit user choice — clear saved session
           await widget.progress.clearIncompleteSession(gradeKey: gradeKey);
           sessionQuestions = remaining;
         }
@@ -98,6 +100,7 @@ class _GradesScreenState extends State<GradesScreen> {
 
     return showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text('Незавершённая сессия'),
         content: Text(

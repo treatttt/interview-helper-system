@@ -272,6 +272,30 @@ void main() {
           expect(find.byType(SessionScreen), findsOneWidget);
         });
 
+    testWidgets(
+        'saved session + barrier dismiss (null) → no SessionScreen, no clear',
+        (tester) async {
+      when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
+      when(() => progress.loadIncompleteSession('t1_g1')).thenReturn({
+        'gradeKey': 't1_g1',
+        'questionIds': ['q1', 'q2'],
+        'currentIndex': 0,
+        'answeredData': <Map<String, dynamic>>[],
+      });
+      await pumpScreen(tester, inProgress());
+
+      await tester.tap(find.text('Junior'));
+      await tester.pumpAndSettle();
+      // Dialog is showing; simulate system back / programmatic null pop.
+      tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SessionScreen), findsNothing);
+      verifyNever(
+        () => progress.clearIncompleteSession(gradeKey: any(named: 'gradeKey')),
+      );
+    },);
+
     testWidgets('saved session + "Продолжить" resumes into a session',
             (tester) async {
           when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
