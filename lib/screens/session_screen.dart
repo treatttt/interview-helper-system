@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
 import 'package:interview_helper_system/models/incomplete_session.dart';
@@ -5,6 +7,7 @@ import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/result_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/utils/motion.dart';
 import 'package:interview_helper_system/utils/option_highlight.dart';
 
 class SessionScreen extends StatefulWidget {
@@ -51,15 +54,13 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.previousAnswers.isEmpty && widget.initialIndex == 0) {
-      _controller = SessionController(widget.questions);
-    } else {
-      _controller = SessionController.resume(
-        questions: widget.questions,
-        startIndex: widget.initialIndex,
-        previousAnswers: widget.previousAnswers,
-      );
-    }
+    _controller = widget.previousAnswers.isEmpty && widget.initialIndex == 0
+        ? SessionController(widget.questions)
+        : SessionController.resume(
+            questions: widget.questions,
+            startIndex: widget.initialIndex,
+            previousAnswers: widget.previousAnswers,
+          );
   }
 
   @override
@@ -105,27 +106,35 @@ class _SessionScreenState extends State<SessionScreen> {
     final hasMore = _controller.next();
     if (!hasMore) {
       _finishing = true;
-      // Тема-дрилл не трогает грейдовую паузу (clearIncomplete: false), но чистит
-      // свой тема-слот; полногрейдовая сессия чистит грейдовый слот.
-      widget.progress.recordSession(
-        _gradeKey,
-        _controller.result,
-        clearIncomplete: !_isTopicDrill,
-      );
-      if (_isTopicDrill) {
-        widget.progress
-            .clearIncompleteTopicSession(topicTitle: widget.topicTitle);
-      }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => ResultScreen(
-            result: _controller.result,
-            track: widget.track,
-            grade: widget.grade,
-            progress: widget.progress,
-          ),
+      // Берём navigator и роут из context ДО вызовов, возвращающих Future
+      // (recordSession/clearIncompleteTopicSession), чтобы не трогать
+      // BuildContext после возможного async-гэпа.
+      final navigator = Navigator.of(context);
+      final route = fadeThroughRoute<void>(
+        context,
+        ResultScreen(
+          result: _controller.result,
+          track: widget.track,
+          grade: widget.grade,
+          progress: widget.progress,
         ),
       );
+      // Тема-дрилл не трогает грейдовую паузу (clearIncomplete: false), но чистит
+      // свой тема-слот; полногрейдовая сессия чистит грейдовый слот.
+      unawaited(
+        widget.progress.recordSession(
+          _gradeKey,
+          _controller.result,
+          clearIncomplete: !_isTopicDrill,
+        ),
+      );
+      if (_isTopicDrill) {
+        unawaited(
+          widget.progress
+              .clearIncompleteTopicSession(topicTitle: widget.topicTitle),
+        );
+      }
+      unawaited(navigator.pushReplacement(route));
     }
   }
 
@@ -145,6 +154,8 @@ class _SessionScreenState extends State<SessionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Прогресс-бар и чип трека статичны — анимируем только
+                      // содержимое вопроса при смене индекса.
                       ClipRRect(
                         borderRadius: BorderRadius.circular(3),
                         child: LinearProgressIndicator(
@@ -177,44 +188,21 @@ class _SessionScreenState extends State<SessionScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      if (c.current.isMultipleChoice && !c.answered)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Можно выбрать несколько вариантов',
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
+                      // Кросс-фейд между вопросами. Ключ — индекс вопроса:
+                      // смена индекса → переход; фиксация ответа (тот же индекс)
+                      // обновляет подсветку мгновенно, без анимации. Уважает
+                      // reduce-motion через motionDuration.
+                      AnimatedSwitcher(
+                        duration: motionDuration(
+                          context,
+                          const Duration(milliseconds: 220),
                         ),
-                      const SizedBox(height: 6),
-                      Text(c.current.text,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        child: _questionBlock(c),
                       ),
-                      const SizedBox(height: 18),
-                      ...List.generate(
-                        c.current.options.length,
-                            (i) => _optionTile(c, i),
-                      ),
-                      if (c.answered &&
-                          c.current.explanation != null &&
-                          c.current.explanation!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(c.current.explanation!,
-                            style: const TextStyle(fontSize: 13, height: 1.5),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -226,9 +214,7 @@ class _SessionScreenState extends State<SessionScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: c.answered
-                          ? _onNext
-                          : (c.selected.isEmpty ? null : c.submit),
+                      onPressed: _primaryAction(c),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -244,9 +230,67 @@ class _SessionScreenState extends State<SessionScreen> {
     );
   }
 
+  /// Содержимое одного вопроса (текст, варианты, пояснение). Обёрнуто ключом по
+  /// индексу — это то, что кросс-фейдит [AnimatedSwitcher] при смене вопроса.
+  Widget _questionBlock(SessionController c) {
+    return Column(
+      key: ValueKey(c.index),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (c.current.isMultipleChoice && !c.answered)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Можно выбрать несколько вариантов',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 6),
+        Text(
+          c.current.text,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 18),
+        ...List.generate(
+          c.current.options.length,
+          (i) => _optionTile(c, i),
+        ),
+        if (c.answered &&
+            c.current.explanation != null &&
+            c.current.explanation!.trim().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              c.current.explanation!,
+              style: const TextStyle(fontSize: 13, height: 1.5),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   String _buttonLabel(SessionController c) {
     if (!c.answered) return 'Ответить';
     return c.isLast ? 'Завершить' : 'Дальше';
+  }
+
+  /// Действие основной кнопки: после ответа — переход дальше; до ответа —
+  /// фиксация (или null, пока ничего не выбрано → кнопка неактивна).
+  VoidCallback? _primaryAction(SessionController c) {
+    if (c.answered) return _onNext;
+    if (c.selected.isEmpty) return null;
+    return c.submit;
   }
 
   Widget _optionTile(SessionController c, int i) {

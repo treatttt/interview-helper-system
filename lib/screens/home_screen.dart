@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
@@ -8,6 +6,7 @@ import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/utils/tap_lock.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -22,7 +21,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with TracksLoader<HomeScreen>, TapLock<HomeScreen> {
   @override
   QuestionRepository get repository => widget.repository;
 
@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
 
   // ── Navigation helpers ──────────────────────────────────────────────────
 
-  void _openRecommendedSession() {
+  Future<void> _openRecommendedSession() async {
     if (tracks.isEmpty) return;
 
     final weak = widget.progress.weakestTopics(limit: 1);
@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
     final target = byTopic ?? _firstTrackWithUnmastered((_) => true);
 
     // 3) Всё освоено — открываем первый трек.
-    _pushGrades(target ?? tracks.first);
+    await _pushGrades(target ?? tracks.first);
   }
 
   /// Первый трек (по порядку грейдов), где есть непройденный вопрос,
@@ -65,19 +65,22 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
   }
 
   /// Тык по слабой теме → сессия по этой теме (общий хелпер с экраном «Темы»).
-  void _openWeakTopic(String topicTitle) => startTopicSession(
-        context,
-        tracks: tracks,
-        progress: widget.progress,
-        topicTitle: topicTitle,
+  /// guardTap: повторный тап по строке не открывает второй экран.
+  void _openWeakTopic(String topicTitle) => guardTap(
+        () => startTopicSession(
+          context,
+          tracks: tracks,
+          progress: widget.progress,
+          topicTitle: topicTitle,
+        ),
       );
 
-  void _pushGrades(Track track) {
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => GradesScreen(track: track, progress: widget.progress),
-        ),
+  /// Возвращает [Future] пуша — завершается при возврате с грейдов. Это даёт
+  /// guardTap держать лок до закрытия экрана (защита от двойного пуша грейдов).
+  Future<void> _pushGrades(Track track) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GradesScreen(track: track, progress: widget.progress),
       ),
     );
   }
@@ -224,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: loading ? null : _openRecommendedSession,
+        onPressed: loading ? null : () => guardTap(_openRecommendedSession),
         child: Text(label),
       ),
     );
@@ -256,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: InkWell(
-        onTap: () => _pushGrades(track),
+        onTap: () => guardTap(() => _pushGrades(track)),
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
