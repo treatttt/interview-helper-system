@@ -18,20 +18,35 @@ class TopicProgress {
   final int mastered;
 
   double get fraction => total == 0 ? 0.0 : mastered / total;
-
   bool get allMastered => total > 0 && mastered >= total;
+}
+
+/// Учитывает вопросы одного грейда в аккумуляторах [total]/[mastered]
+/// (тема → счётчик). Вопросы без темы пропускаются. Темы добавляются в карты
+/// по первому появлению (Map в Dart хранит ключи в порядке вставки).
+void _accumulateGrade(
+  Grade grade,
+  Set<String> masteredIds,
+  Map<String, int> total,
+  Map<String, int> mastered,
+) {
+  for (final q in grade.questions) {
+    final topic = q.topic;
+    if (topic == null || topic.isEmpty) continue;
+    total[topic] = (total[topic] ?? 0) + 1;
+    if (masteredIds.contains(q.id)) {
+      mastered[topic] = (mastered[topic] ?? 0) + 1;
+    }
+  }
 }
 
 /// Собирает список тем из загруженного каталога: группирует вопросы по
 /// [Question.topic] (вопросы без темы пропускаются), считает всего/освоено по
 /// каждой теме. Порядок — по первому появлению темы при обходе треков и грейдов
-/// по их [order]. Темы могут встречаться в нескольких треках/грейдах — счётчики
-/// суммируются по всем.
-List<TopicProgress> buildTopicCatalog(
-  List<Track> tracks,
-  ProgressService progress,
-) {
-  final order = <String>[];
+/// по возрастанию их order. Темы могут встречаться в нескольких треках/грейдах —
+/// счётчики суммируются по всем.
+List<TopicProgress> buildTopicCatalog(List<Track> tracks,
+    ProgressService progress,) {
   final total = <String, int>{};
   final mastered = <String, int>{};
 
@@ -40,29 +55,21 @@ List<TopicProgress> buildTopicCatalog(
     final grades = [...track.grades]
       ..sort((a, b) => a.order.compareTo(b.order));
     for (final grade in grades) {
-      final masteredIds = progress.masteredIds(track.id, grade.id);
-      for (final q in grade.questions) {
-        final topic = q.topic;
-        if (topic == null || topic.isEmpty) continue;
-        if (!total.containsKey(topic)) {
-          order.add(topic);
-          total[topic] = 0;
-          mastered[topic] = 0;
-        }
-        total[topic] = total[topic]! + 1;
-        if (masteredIds.contains(q.id)) {
-          mastered[topic] = mastered[topic]! + 1;
-        }
-      }
+      _accumulateGrade(
+        grade,
+        progress.masteredIds(track.id, grade.id),
+        total,
+        mastered,
+      );
     }
   }
 
   return [
-    for (final topic in order)
+    for (final entry in total.entries)
       TopicProgress(
-        title: topic,
-        total: total[topic]!,
-        mastered: mastered[topic]!,
+        title: entry.key,
+        total: entry.value,
+        mastered: mastered[entry.key] ?? 0,
       ),
   ];
 }
@@ -76,8 +83,7 @@ List<TopicProgress> buildTopicCatalog(
 /// была бы перезаписана/затёрта). Тема может лежать в нескольких грейдах —
 /// остаток всплывёт при следующем заходе. Если непройденных вопросов темы не
 /// осталось — показываем SnackBar.
-void startTopicSession(
-  BuildContext context, {
+void startTopicSession(BuildContext context, {
   required List<Track> tracks,
   required ProgressService progress,
   required String topicTitle,
