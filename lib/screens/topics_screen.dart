@@ -3,6 +3,7 @@ import 'package:interview_helper_system/screens/topic_session.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/utils/tap_lock.dart';
 
 /// Каталог тем — список тем (БД, SQL, Интеграции…) с прогрессом по каждой.
 /// Тап по теме запускает сессию из непройденных вопросов этой темы; иконка
@@ -22,19 +23,22 @@ class TopicsScreen extends StatefulWidget {
 }
 
 class _TopicsScreenState extends State<TopicsScreen>
-    with TracksLoader<TopicsScreen> {
+    with TracksLoader<TopicsScreen>, TapLock<TopicsScreen> {
   @override
   QuestionRepository get repository => widget.repository;
 
   @override
   String get loadErrorMessage => 'Не удалось загрузить темы';
 
-  void _openTopic(String title) => startTopicSession(
-    context,
-    tracks: tracks,
-    progress: widget.progress,
-    topicTitle: title,
-  );
+  // guardTap: двойной/быстрый тап по карточке темы не открывает второй экран.
+  void _openTopic(String title) => guardTap(
+        () => startTopicSession(
+          context,
+          tracks: tracks,
+          progress: widget.progress,
+          topicTitle: title,
+        ),
+      );
 
   Future<void> _confirmResetTopic(String title) async {
     final confirmed = await showDialog<bool>(

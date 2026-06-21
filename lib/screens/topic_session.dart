@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart'
     show AnswerOutcome, AnsweredQuestion;
@@ -87,20 +85,23 @@ List<TopicProgress> buildTopicCatalog(List<Track> tracks,
 /// Если непройденных вопросов темы не осталось — показываем SnackBar (защитная
 /// ветка: в норме недостижима, см. фильтр пройденных тем на «Обзоре» и сброс на
 /// «Темах»).
-void startTopicSession(BuildContext context, {
+///
+/// Возвращает [Future], который завершается, когда сессия закрыта (или когда
+/// запуск отменён/невозможен). Вызывающий экран оборачивает вызов в `guardTap`,
+/// поэтому пуш ниже **await-ится** — лок держится всю сессию и второй тап по
+/// карточке темы не открывает второй экран.
+Future<void> startTopicSession(
+  BuildContext context, {
   required List<Track> tracks,
   required ProgressService progress,
   required String topicTitle,
-}) {
-  unawaited(
+}) =>
     _runTopicSession(
       context,
       tracks: tracks,
       progress: progress,
       topicTitle: topicTitle,
-    ),
-  );
-}
+    );
 
 Future<void> _runTopicSession(BuildContext context, {
   required List<Track> tracks,
@@ -109,7 +110,8 @@ Future<void> _runTopicSession(BuildContext context, {
 }) async {
   if (await _maybeResumeTopic(context, tracks, progress, topicTitle)) return;
   if (!context.mounted) return;
-  if (_startFreshTopic(context, tracks, progress, topicTitle)) return;
+  if (await _startFreshTopic(context, tracks, progress, topicTitle)) return;
+  if (!context.mounted) return; // _startFreshTopic — async-гэп
 
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -120,9 +122,9 @@ Future<void> _runTopicSession(BuildContext context, {
     );
 }
 
-/// Возвращает true, если резюм полностью обработал заход (открыл продолжение).
-/// false — если паузы нет/протухла/пользователь выбрал «Начать заново»:
-/// вызывающий уходит в свежий старт.
+/// Возвращает true, если резюм полностью обработал заход (открыл продолжение
+/// или пользователь отменил диалог). false — если паузы нет/протухла/выбрал
+/// «Начать заново»: вызывающий уходит в свежий старт.
 Future<bool> _maybeResumeTopic(BuildContext context,
     List<Track> tracks,
     ProgressService progress,
@@ -148,18 +150,17 @@ Future<bool> _maybeResumeTopic(BuildContext context,
     return false;
   }
 
-  unawaited(
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SessionScreen(
-          track: args.track,
-          grade: args.grade,
-          questions: args.questions,
-          progress: progress,
-          initialIndex: args.startIndex,
-          previousAnswers: args.previousAnswers,
-          topicTitle: topicTitle,
-        ),
+  // Пуш await-ится: лок вызывающего держится до закрытия сессии.
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => SessionScreen(
+        track: args.track,
+        grade: args.grade,
+        questions: args.questions,
+        progress: progress,
+        initialIndex: args.startIndex,
+        previousAnswers: args.previousAnswers,
+        topicTitle: topicTitle,
       ),
     ),
   );
@@ -180,10 +181,8 @@ Future<bool> _maybeResumeTopic(BuildContext context,
 
 /// Восстанавливает список отвеченных вопросов из паузы по карте вопросов грейда.
 /// null — если хоть один отвеченный вопрос не нашёлся (данные поменялись).
-List<AnsweredQuestion>? _restoreAnswers(
-  Map<String, Question> byId,
-  List<AnsweredItemData> answeredData,
-) {
+List<AnsweredQuestion>? _restoreAnswers(Map<String, Question> byId,
+    List<AnsweredItemData> answeredData,) {
   final previous = <AnsweredQuestion>[];
   for (final d in answeredData) {
     final q = byId[d.id];
@@ -204,7 +203,7 @@ List<AnsweredQuestion>? _restoreAnswers(
 /// (данные поменялись) → пауза считается протухшей.
 ({
 Track track,
-  Grade grade,
+Grade grade,
   List<Question> questions,
   int startIndex,
   List<AnsweredQuestion> previousAnswers,
@@ -230,11 +229,14 @@ Track track,
 }
 
 /// Свежий старт: первый грейд (по order) с непройденными вопросами темы.
-/// Возвращает true, если сессия открыта.
-bool _startFreshTopic(BuildContext context,
-    List<Track> tracks,
+/// Возвращает true, если сессия открыта. Пуш await-ится — лок вызывающего
+/// держится до закрытия сессии (защита от двойного тапа по карточке темы).
+Future<bool> _startFreshTopic(
+  BuildContext context,
+  List<Track> tracks,
     ProgressService progress,
-    String topicTitle,) {
+  String topicTitle,
+) async {
   final sortedTracks = [...tracks]..sort((a, b) => a.order.compareTo(b.order));
   for (final track in sortedTracks) {
     final grades = [...track.grades]
@@ -245,16 +247,15 @@ bool _startFreshTopic(BuildContext context,
           .where((q) => q.topic == topicTitle && !mastered.contains(q.id))
           .toList();
       if (questions.isEmpty) continue;
-      unawaited(
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => SessionScreen(
-              track: track,
-              grade: grade,
-              questions: questions,
-              progress: progress,
-              topicTitle: topicTitle,
-            ),
+      if (!context.mounted) return true;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SessionScreen(
+            track: track,
+            grade: grade,
+            questions: questions,
+            progress: progress,
+            topicTitle: topicTitle,
           ),
         ),
       );
