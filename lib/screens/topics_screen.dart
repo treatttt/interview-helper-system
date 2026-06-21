@@ -1,13 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:interview_helper_system/models/models.dart';
-import 'package:interview_helper_system/screens/grades_screen.dart';
+import 'package:interview_helper_system/screens/topic_session.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 
-/// Каталог всех направлений — полный список треков с прогрессом по грейдам.
+/// Каталог тем — список тем (БД, SQL, Интеграции…) с прогрессом по каждой.
+/// Тап по теме запускает сессию из непройденных вопросов этой темы.
+/// Направления/грейды — отдельный разрез, живут на экране «Обзор» и в каталоге.
 class TopicsScreen extends StatefulWidget {
   const TopicsScreen({
     required this.repository,
@@ -27,7 +26,7 @@ class _TopicsScreenState extends State<TopicsScreen>
   QuestionRepository get repository => widget.repository;
 
   @override
-  String get loadErrorMessage => 'Не удалось загрузить направления';
+  String get loadErrorMessage => 'Не удалось загрузить темы';
 
   @override
   Widget build(BuildContext context) {
@@ -39,23 +38,30 @@ class _TopicsScreenState extends State<TopicsScreen>
           ? const Center(child: CircularProgressIndicator())
           : error != null
               ? ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad)
-              : tracks.isEmpty
-                  ? _emptyView()
-                  : ListenableBuilder(
-                      listenable: widget.progress,
-                      builder: (context, _) => ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        itemCount: tracks.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _TrackCard(
-                          track: tracks[i],
+              : ListenableBuilder(
+                  listenable: widget.progress,
+                  builder: (context, _) {
+                    final topics = buildTopicCatalog(tracks, widget.progress);
+                    if (topics.isEmpty) return _emptyView();
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      itemCount: topics.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) => _TopicCard(
+                        topic: topics[i],
+                        onTap: () => startTopicSession(
+                          context,
+                          tracks: tracks,
                           progress: widget.progress,
+                          topicTitle: topics[i].title,
                         ),
                       ),
-                    ),
+                    );
+                  },
+                ),
     );
   }
 
@@ -70,13 +76,13 @@ class _TopicsScreenState extends State<TopicsScreen>
             Icon(Icons.inbox_outlined, size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 16),
             const Text(
-              'Вопросов пока нет',
+              'Тем пока нет',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 6),
             Text(
-              'Направления появятся, когда будут добавлены вопросы.',
+              'Темы появятся, когда будут добавлены вопросы.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
             ),
@@ -87,30 +93,19 @@ class _TopicsScreenState extends State<TopicsScreen>
   }
 }
 
-class _TrackCard extends StatelessWidget {
-  const _TrackCard({required this.track, required this.progress});
-  final Track track;
-  final ProgressService progress;
+class _TopicCard extends StatelessWidget {
+  const _TopicCard({required this.topic, required this.onTap});
+
+  final TopicProgress topic;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final totalQuestions =
-        track.grades.fold<int>(0, (s, g) => s + g.questions.length);
-    final mastered = track.grades.fold<int>(
-      0,
-      (s, g) => s + progress.masteredIds(track.id, g.id).length,
-    );
-    final progressPct = totalQuestions == 0 ? 0.0 : mastered / totalQuestions;
+    final done = topic.allMastered;
 
     return InkWell(
-      onTap: () => unawaited(
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => GradesScreen(track: track, progress: progress),
-          ),
-        ),
-      ),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -124,50 +119,35 @@ class _TrackCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        track.title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (track.description != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          track.description!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    topic.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                Text(
-                  '$mastered/$totalQuestions',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                ),
+                const SizedBox(width: 8),
+                if (done)
+                  Icon(Icons.check_circle, size: 18, color: cs.primary)
+                else
+                  Text(
+                    '${topic.mastered}/${topic.total}',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
                 const SizedBox(width: 4),
                 Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
               ],
             ),
-            if (totalQuestions > 0) ...[
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: progressPct,
-                  minHeight: 5,
-                  backgroundColor: cs.surfaceContainerHighest,
-                ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: topic.fraction,
+                minHeight: 5,
+                backgroundColor: cs.surfaceContainerHighest,
               ),
-            ],
+            ),
           ],
         ),
       ),

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
-import 'package:interview_helper_system/screens/session_screen.dart';
+import 'package:interview_helper_system/screens/topic_session.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
@@ -64,57 +64,13 @@ class _HomeScreenState extends State<HomeScreen> with TracksLoader<HomeScreen> {
     return null;
   }
 
-  /// Тык по слабой теме → сессия из непройденных вопросов именно этой темы.
-  /// Берём первый грейд (по порядку), где такие вопросы есть, и гоняем только
-  /// их подмножество. Прогресс пишется под ключом track_grade этого грейда, как
-  /// у обычной сессии. Тема может встречаться в нескольких грейдах — остаток
-  /// всплывёт при следующем заходе.
-  void _openWeakTopic(String topicTitle) {
-    for (final track in tracks) {
-      final grades = [...track.grades]
-        ..sort((a, b) => a.order.compareTo(b.order));
-      for (final grade in grades) {
-        final mastered = widget.progress.masteredIds(track.id, grade.id);
-        final topicQuestions = grade.questions
-            .where((q) => q.topic == topicTitle && !mastered.contains(q.id))
-            .toList();
-        if (topicQuestions.isNotEmpty) {
-          _startTopicDrill(track, grade, topicQuestions);
-          return;
-        }
-      }
-    }
-    // Непройденных вопросов темы не осталось — все освоены.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            'Все вопросы темы «$topicTitle» пройдены. '
-            'Сбрось грейд в каталоге, чтобы повторить.',
-          ),
-        ),
+  /// Тык по слабой теме → сессия по этой теме (общий хелпер с экраном «Темы»).
+  void _openWeakTopic(String topicTitle) => startTopicSession(
+        context,
+        tracks: tracks,
+        progress: widget.progress,
+        topicTitle: topicTitle,
       );
-  }
-
-  /// Запуск тема-дрилла. persistIncomplete: false — короткий дрилл не сохраняет
-  /// своё незавершённое состояние и не трогает единственный слот незавершённой
-  /// сессии грейда (иначе полногрейдовая пауза была бы перезаписана/затёрта).
-  void _startTopicDrill(Track track, Grade grade, List<Question> questions) {
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => SessionScreen(
-            track: track,
-            grade: grade,
-            questions: questions,
-            progress: widget.progress,
-            persistIncomplete: false,
-          ),
-        ),
-      ),
-    );
-  }
 
   void _pushGrades(Track track) {
     unawaited(
