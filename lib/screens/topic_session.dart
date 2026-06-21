@@ -46,10 +46,8 @@ void _accumulateGrade(Grade grade,
 /// каждой теме. Порядок — по первому появлению темы при обходе треков и грейдов
 /// по возрастанию их order. Темы могут встречаться в нескольких треках/грейдах —
 /// счётчики суммируются по всем.
-List<TopicProgress> buildTopicCatalog(
-  List<Track> tracks,
-  ProgressService progress,
-) {
+List<TopicProgress> buildTopicCatalog(List<Track> tracks,
+    ProgressService progress,) {
   final total = <String, int>{};
   final mastered = <String, int>{};
 
@@ -89,8 +87,7 @@ List<TopicProgress> buildTopicCatalog(
 /// Если непройденных вопросов темы не осталось — показываем SnackBar (защитная
 /// ветка: в норме недостижима, см. фильтр пройденных тем на «Обзоре» и сброс на
 /// «Темах»).
-void startTopicSession(
-  BuildContext context, {
+void startTopicSession(BuildContext context, {
   required List<Track> tracks,
   required ProgressService progress,
   required String topicTitle,
@@ -105,8 +102,7 @@ void startTopicSession(
   );
 }
 
-Future<void> _runTopicSession(
-  BuildContext context, {
+Future<void> _runTopicSession(BuildContext context, {
   required List<Track> tracks,
   required ProgressService progress,
   required String topicTitle,
@@ -127,12 +123,10 @@ Future<void> _runTopicSession(
 /// Возвращает true, если резюм полностью обработал заход (открыл продолжение).
 /// false — если паузы нет/протухла/пользователь выбрал «Начать заново»:
 /// вызывающий уходит в свежий старт.
-Future<bool> _maybeResumeTopic(
-  BuildContext context,
-  List<Track> tracks,
-  ProgressService progress,
-  String topicTitle,
-) async {
+Future<bool> _maybeResumeTopic(BuildContext context,
+    List<Track> tracks,
+    ProgressService progress,
+    String topicTitle,) async {
   final raw = progress.loadIncompleteTopicSession(topicTitle);
   if (raw == null) return false;
 
@@ -172,57 +166,75 @@ Future<bool> _maybeResumeTopic(
   return true;
 }
 
-/// Реконструирует аргументы сессии из паузы: находит грейд по gradeKey и
-/// восстанавливает вопросы/ответы. null — если грейд или вопросы не нашлись
-/// (данные поменялись) → пауза считается протухшей.
-({
-  Track track,
-  Grade grade,
-  List<Question> questions,
-  int startIndex,
-  List<AnsweredQuestion> previousAnswers,
-})? _resumeArgs(List<Track> tracks, IncompleteSession paused) {
+/// Находит трек+грейд по gradeKey среди всех треков. null — если не нашёлся.
+({Track track, Grade grade})? _findGrade(List<Track> tracks, String gradeKey) {
   for (final track in tracks) {
     for (final grade in track.grades) {
-      if ('${track.id}_${grade.id}' != paused.gradeKey) continue;
-      final byId = {for (final q in grade.questions) q.id: q};
-      final questions = paused.questionIds
-          .map((id) => byId[id])
-          .whereType<Question>()
-          .toList();
-      if (questions.length != paused.questionIds.length) return null;
-      final previous = <AnsweredQuestion>[];
-      for (final d in paused.answeredData) {
-        final q = byId[d.id];
-        if (q == null) return null;
-        previous.add(
-          AnsweredQuestion(
-            question: q,
-            selected: d.selected.toSet(),
-            outcome: AnswerOutcome.values.byName(d.outcome),
-          ),
-        );
+      if ('${track.id}_${grade.id}' == gradeKey) {
+        return (track: track, grade: grade);
       }
-      return (
-        track: track,
-        grade: grade,
-        questions: questions,
-        startIndex: paused.currentIndex,
-        previousAnswers: previous,
-      );
     }
   }
   return null;
 }
 
+/// Восстанавливает список отвеченных вопросов из паузы по карте вопросов грейда.
+/// null — если хоть один отвеченный вопрос не нашёлся (данные поменялись).
+List<AnsweredQuestion>? _restoreAnswers(
+  Map<String, Question> byId,
+  List<AnsweredItemData> answeredData,
+) {
+  final previous = <AnsweredQuestion>[];
+  for (final d in answeredData) {
+    final q = byId[d.id];
+    if (q == null) return null;
+    previous.add(
+      AnsweredQuestion(
+        question: q,
+        selected: d.selected.toSet(),
+        outcome: AnswerOutcome.values.byName(d.outcome),
+      ),
+    );
+  }
+  return previous;
+}
+
+/// Реконструирует аргументы сессии из паузы: находит грейд по gradeKey и
+/// восстанавливает вопросы/ответы. null — если грейд или вопросы не нашлись
+/// (данные поменялись) → пауза считается протухшей.
+({
+Track track,
+  Grade grade,
+  List<Question> questions,
+  int startIndex,
+  List<AnsweredQuestion> previousAnswers,
+})? _resumeArgs(List<Track> tracks, IncompleteSession paused) {
+  final loc = _findGrade(tracks, paused.gradeKey);
+  if (loc == null) return null;
+
+  final byId = {for (final q in loc.grade.questions) q.id: q};
+  final questions =
+      paused.questionIds.map((id) => byId[id]).whereType<Question>().toList();
+  if (questions.length != paused.questionIds.length) return null;
+
+  final previous = _restoreAnswers(byId, paused.answeredData);
+  if (previous == null) return null;
+
+  return (
+    track: loc.track,
+    grade: loc.grade,
+    questions: questions,
+    startIndex: paused.currentIndex,
+    previousAnswers: previous,
+  );
+}
+
 /// Свежий старт: первый грейд (по order) с непройденными вопросами темы.
 /// Возвращает true, если сессия открыта.
-bool _startFreshTopic(
-  BuildContext context,
-  List<Track> tracks,
-  ProgressService progress,
-  String topicTitle,
-) {
+bool _startFreshTopic(BuildContext context,
+    List<Track> tracks,
+    ProgressService progress,
+    String topicTitle,) {
   final sortedTracks = [...tracks]..sort((a, b) => a.order.compareTo(b.order));
   for (final track in sortedTracks) {
     final grades = [...track.grades]
@@ -252,10 +264,8 @@ bool _startFreshTopic(
   return false;
 }
 
-Future<String?> _showTopicResumeDialog(
-  BuildContext context,
-  IncompleteSession paused,
-) {
+Future<String?> _showTopicResumeDialog(BuildContext context,
+    IncompleteSession paused,) {
   final answered = paused.answeredData.length;
   final total = paused.questionIds.length;
   return showDialog<String>(
@@ -282,11 +292,9 @@ Future<String?> _showTopicResumeDialog(
 /// каталогу и очистить её паузу. История точности (_topicStats) намеренно не
 /// трогается — это правда о том, как пользователь отвечал, и она кормит блок
 /// слабых тем.
-Future<void> resetTopic(
-  List<Track> tracks,
-  ProgressService progress,
-  String topicTitle,
-) async {
+Future<void> resetTopic(List<Track> tracks,
+    ProgressService progress,
+    String topicTitle,) async {
   final idsByGradeKey = <String, Set<String>>{};
   for (final track in tracks) {
     for (final grade in track.grades) {
