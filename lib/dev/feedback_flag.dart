@@ -10,18 +10,33 @@
 /// Прод-сборка: без флага → `false` → код вырезается компилятором.
 const bool kFeedbackEnabled = bool.fromEnvironment('FEEDBACK');
 
-/// Канал доставки: куда тестер вставляет скопированный отчёт.
-///
-/// Подходит любая ссылка - Google Forms, Telegram, mailto. Меняется без
-/// правки кода: `--dart-define=FEEDBACK_URL=https://forms.gle/xxxx`.
-const String kFeedbackDestination = String.fromEnvironment(
-  'FEEDBACK_URL',
-  defaultValue: 'https://forms.gle/REPLACE_ME',
-);
+/// URL `.../formResponse` Google-формы для авто-отправки отчёта.
+/// `--dart-define=FEEDBACK_FORM_URL=https://docs.google.com/forms/d/e/XXX/formResponse`
+const String kFeedbackFormUrl = String.fromEnvironment('FEEDBACK_FORM_URL');
+
+/// ID поля формы для полного текста отчёта (catch-all). Обязательное.
+/// Без него авто-отправка выключена. Пример: `entry.123456789`.
+const String kEntryText = String.fromEnvironment('FEEDBACK_ENTRY_TEXT');
+
+/// ID поля «Тип» (Баг/Идея). Опционально — отдельная колонка для фильтра.
+const String kEntryType = String.fromEnvironment('FEEDBACK_ENTRY_TYPE');
+
+/// ID поля «Экран». Опционально.
+const String kEntryScreen = String.fromEnvironment('FEEDBACK_ENTRY_SCREEN');
+
+/// ID поля «Версия». Опционально.
+const String kEntryVersion = String.fromEnvironment('FEEDBACK_ENTRY_VERSION');
+
+/// ID поля «ID отчёта» для сквозного отслеживания. Опционально.
+const String kEntryId = String.fromEnvironment('FEEDBACK_ENTRY_ID');
 
 /// Версия приложения в отчёте. По умолчанию совпадает с pubspec.
-/// Можно переопределить: `--dart-define=APP_VERSION=1.2.0+5`.
+/// `--dart-define=APP_VERSION=1.2.0+5`
 const String kFeedbackAppVersion = String.fromEnvironment(
   'APP_VERSION',
   defaultValue: '1.0.0+1',
 );
+
+/// Настроена ли авто-отправка: задан URL формы и поле текста.
+bool get kFeedbackAutoSend =>
+    kFeedbackFormUrl.isNotEmpty && kEntryText.isNotEmpty;
