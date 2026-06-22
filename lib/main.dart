@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:interview_helper_system/dev/feedback_flag.dart';
+import 'package:interview_helper_system/dev/feedback_overlay.dart';
+import 'package:interview_helper_system/dev/feedback_route_observer.dart';
 import 'package:interview_helper_system/screens/main_shell.dart';
 import 'package:interview_helper_system/screens/onboarding_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
@@ -15,6 +18,15 @@ void main() async {
   final themeService = ThemeService();
   await themeService.init();
   runApp(InterviewHelperApp(progress: progress, themeService: themeService));
+}
+
+/// Оборачивает дерево оверлеем обратной связи только в тестовой сборке.
+///
+/// В прод-сборке флаг — `const false`, поэтому возвращается `child` без
+/// изменений, а ссылка на `FeedbackOverlay` вырезается tree-shaking'ом.
+Widget _appBuilder(BuildContext _, Widget? child) {
+  final content = child ?? const SizedBox.shrink();
+  return kFeedbackEnabled ? FeedbackOverlay(child: content) : content;
 }
 
 class InterviewHelperApp extends StatelessWidget {
@@ -40,6 +52,10 @@ class InterviewHelperApp extends StatelessWidget {
         theme: buildLightTheme(),
         darkTheme: buildDarkTheme(),
         themeMode: themeService.mode,
+        navigatorObservers: [
+          if (kFeedbackEnabled) feedbackRouteObserver,
+        ],
+        builder: _appBuilder,
         home: progress.onboardingDone
             ? MainShell(
                 repository: repository,
@@ -49,12 +65,16 @@ class InterviewHelperApp extends StatelessWidget {
             : OnboardingScreen(
                 onFinish: () {
                   unawaited(progress.markOnboardingDone());
-                  navigatorKey.currentState?.pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => MainShell(
-                        repository: repository,
-                        progress: progress,
-                        themeService: themeService,
+                  final navigator = navigatorKey.currentState;
+                  if (navigator == null) return;
+                  unawaited(
+                    navigator.pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MainShell(
+                          repository: repository,
+                          progress: progress,
+                          themeService: themeService,
+                        ),
                       ),
                     ),
                   );
