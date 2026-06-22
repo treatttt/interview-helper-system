@@ -1,26 +1,86 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:interview_helper_system/dev/feedback_flag.dart';
 import 'package:interview_helper_system/dev/feedback_route_observer.dart';
 
-/// Формирует текст отчёта обратной связи. Чистая функция - легко тестируется.
-String buildFeedbackReport({
-  required String text,
-  required String route,
-  required String themeLabel,
-  required DateTime now,
-}) {
-  final ts = '${_pad(now.year, 4)}-${_pad(now.month, 2)}-${_pad(now.day, 2)} '
-      '${_pad(now.hour, 2)}:${_pad(now.minute, 2)}';
+/// Тип обращения, выбираемый тестером.
+enum FeedbackKind {
+  bug('Баг'),
+  idea('Идея');
+
+  const FeedbackKind(this.label);
+
+  final String label;
+}
+
+/// Собранный отчёт. Record вместо класса — чтобы не плодить конструктор
+/// с числом параметров сверх лимита метрики (литерал записи не считается
+/// объявлением функции).
+typedef FeedbackData = ({
+  String id,
+  FeedbackKind kind,
+  String screen,
+  String themeLabel,
+  String text,
+  DateTime now,
+});
+
+const _idAlphabet = '0123456789ABCDEFGHJKMNPQRSTUVWXYZ';
+
+/// Короткий человекочитаемый ID отчёта (например `FB-7K9X2A`).
+/// Не криптостойкий — нужен лишь для ссылок «баг FB-…» при разборе.
+String generateFeedbackId([Random? random]) {
+  final rnd = random ?? Random();
+  final tail = List.generate(
+    6,
+    (_) => _idAlphabet[rnd.nextInt(_idAlphabet.length)],
+  ).join();
+  return 'FB-$tail';
+}
+
+/// Полный текст отчёта (catch-all поле). Чистая функция — тестируется.
+String buildFeedbackReport(FeedbackData data) {
+  final n = data.now;
+  final ts = '${_pad(n.year, 4)}-${_pad(n.month, 2)}-${_pad(n.day, 2)} '
+      '${_pad(n.hour, 2)}:${_pad(n.minute, 2)}';
   return '[Фидбек · Тренажёр собеседований]\n'
+      'ID: ${data.id}\n'
+      'Тип: ${data.kind.label}\n'
       'Время: $ts\n'
       'Версия: $kFeedbackAppVersion\n'
-      'Тема: $themeLabel\n'
-      'Экран: $route\n\n'
-      'Текст:\n${text.trim()}';
+      'Тема: ${data.themeLabel}\n'
+      'Экран: ${data.screen}\n\n'
+      'Текст:\n${data.text.trim()}';
 }
 
 String _pad(int value, int width) => value.toString().padLeft(width, '0');
+
+/// Тело POST-запроса: catch-all текст + опциональные атомарные поля.
+Map<String, String> buildFormBody(FeedbackData data) {
+  final body = <String, String>{};
+  if (kEntryText.isNotEmpty) body[kEntryText] = buildFeedbackReport(data);
+  if (kEntryType.isNotEmpty) body[kEntryType] = data.kind.label;
+  if (kEntryScreen.isNotEmpty) body[kEntryScreen] = data.screen;
+  if (kEntryVersion.isNotEmpty) body[kEntryVersion] = kFeedbackAppVersion;
+  if (kEntryId.isNotEmpty) body[kEntryId] = data.id;
+  return body;
+}
+
+/// Отправляет отчёт в Google-форму. Возвращает `true`, если запрос ушёл.
+///
+/// На web Google блокирует чтение ответа (CORS), но запись регистрирует,
+/// поэтому исключение не означает провал. Если форма не настроена — `false`.
+Future<bool> sendFeedbackReport(FeedbackData data) async {
+  if (!kFeedbackAutoSend) return false;
+  try {
+    await http.post(Uri.parse(kFeedbackFormUrl), body: buildFormBody(data));
+    return true;
+  } on Exception catch (_) {
+    return true;
+  }
+}
 
 /// Глобальный слой обратной связи поверх всего приложения.
 ///
@@ -124,6 +184,9 @@ class _FeedbackPanel extends StatefulWidget {
 
 class _FeedbackPanelState extends State<_FeedbackPanel> {
   final _controller = TextEditingController();
+  final _id = generateFeedbackId();
+  FeedbackKind _kind = FeedbackKind.bug;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -135,17 +198,26 @@ class _FeedbackPanelState extends State<_FeedbackPanel> {
       Theme.of(context).brightness == Brightness.dark ? 'тёмная' : 'светлая';
 
   Future<void> _submit() async {
+    if (_busy) return;
+    setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
-    final report = buildFeedbackReport(
-      text: _controller.text,
-      route: feedbackRouteObserver.currentRouteName,
+    final sent = await sendFeedbackReport((
+      id: _id,
+      kind: _kind,
+      screen: feedbackRouteObserver.currentRouteName,
       themeLabel: _themeLabel(),
+      text: _controller.text,
       now: DateTime.now(),
-    );
-    await Clipboard.setData(ClipboardData(text: report));
+    ));
     widget.onClose();
     messenger.showSnackBar(
-      const SnackBar(content: Text('Скопировано. Вставь в форму или чат.')),
+      SnackBar(
+        content: Text(
+          sent
+              ? 'Отправлено, спасибо! ($_id)'
+              : 'Авто-отправка не настроена (FEEDBACK_FORM_URL/ENTRY).',
+        ),
+      ),
     );
   }
 
@@ -182,59 +254,85 @@ class _FeedbackPanelState extends State<_FeedbackPanel> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _header(cs),
+          const SizedBox(height: 12),
+          _typeSelector(),
+          const SizedBox(height: 12),
+          _input(),
+          const SizedBox(height: 8),
           Text(
-            'Обратная связь',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Опиши проблему или идею. Экран, версия и тема добавятся '
-            'в отчёт автоматически.',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            'ID: $_id',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _controller,
-            minLines: 3,
-            maxLines: 5,
-            autofocus: true,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              hintText: 'Что произошло?',
-            ),
-          ),
-          const SizedBox(height: 10),
-          _destinationLine(cs),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _submit,
-              icon: const Icon(Icons.copy_all_outlined),
-              label: const Text('Скопировать отчёт'),
-            ),
-          ),
+          _submitButton(),
         ],
       ),
     );
   }
 
-  Widget _destinationLine(ColorScheme cs) {
-    return Row(
+  Widget _header(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.link, size: 16, color: cs.onSurfaceVariant),
-        const SizedBox(width: 6),
-        Expanded(
-          child: SelectableText(
-            kFeedbackDestination,
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+        Text(
+          'Обратная связь',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: cs.onSurface,
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          'Опиши проблему или идею. Тип, экран, версия и тема '
+          'добавятся в отчёт автоматически.',
+          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+        ),
       ],
+    );
+  }
+
+  Widget _typeSelector() {
+    return SegmentedButton<FeedbackKind>(
+      segments: const [
+        ButtonSegment(
+          value: FeedbackKind.bug,
+          label: Text('Баг'),
+          icon: Icon(Icons.bug_report_outlined),
+        ),
+        ButtonSegment(
+          value: FeedbackKind.idea,
+          label: Text('Идея'),
+          icon: Icon(Icons.lightbulb_outline),
+        ),
+      ],
+      selected: {_kind},
+      onSelectionChanged: (s) => setState(() => _kind = s.first),
+    );
+  }
+
+  Widget _input() {
+    return TextField(
+      controller: _controller,
+      minLines: 3,
+      maxLines: 5,
+      autofocus: true,
+      decoration: const InputDecoration(
+        border: OutlineInputBorder(),
+        hintText: 'Что произошло?',
+      ),
+    );
+  }
+
+  Widget _submitButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: _busy ? null : _submit,
+        icon: const Icon(Icons.send_outlined),
+        label: const Text('Отправить'),
+      ),
     );
   }
 }

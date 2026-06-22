@@ -47,18 +47,19 @@ class ReviewScreen extends StatelessWidget {
                   onPressed: errorQuestions.isEmpty
                       ? null
                       : () {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute<void>(
-                              builder: (_) => SessionScreen(
-                                track: track,
-                                grade: grade,
-                                questions: errorQuestions,
-                                progress: progress,
-                              ),
-                            ),
-                            (r) => r.isFirst,
-                          );
-                        },
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute<void>(
+                        settings: const RouteSettings(name: 'Вопросы'),
+                        builder: (_) => SessionScreen(
+                          track: track,
+                          grade: grade,
+                          questions: errorQuestions,
+                          progress: progress,
+                        ),
+                      ),
+                          (r) => r.isFirst,
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -118,7 +119,7 @@ class _AnswerCard extends StatelessWidget {
           const SizedBox(height: 12),
           ...List.generate(
             q.options.length,
-            (i) => _optionRow(
+                (i) => _optionRow(
               context: context,
               text: q.options[i],
               highlight: resolveOptionHighlight(
@@ -209,7 +210,7 @@ class _AnswerCard extends StatelessWidget {
             if (tag != null) ...[
               const SizedBox(width: 8),
               Text(tag,
-                  style: TextStyle(
+                style: TextStyle(
                   color: fg,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -247,7 +248,7 @@ class _AnswerCard extends StatelessWidget {
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 6),
         Text(label,
-            style: TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: color,

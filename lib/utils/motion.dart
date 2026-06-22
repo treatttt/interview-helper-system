@@ -14,12 +14,14 @@ Duration motionDuration(BuildContext context, Duration base) {
 /// где спокойное проявление читается лучше бокового слайда. Уважает
 /// reduce-motion: при отключённых анимациях открывается мгновенно.
 Route<T> fadeThroughRoute<T>(
-  BuildContext context,
-  Widget page, {
-  Duration base = const Duration(milliseconds: 300),
-}) {
+    BuildContext context,
+    Widget page, {
+      Duration base = const Duration(milliseconds: 300),
+      String? name,
+    }) {
   final duration = motionDuration(context, base);
   return PageRouteBuilder<T>(
+    settings: RouteSettings(name: name),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
     pageBuilder: (_, __, ___) => page,

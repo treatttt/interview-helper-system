@@ -57,10 +57,10 @@ class _SessionScreenState extends State<SessionScreen> {
     _controller = widget.previousAnswers.isEmpty && widget.initialIndex == 0
         ? SessionController(widget.questions)
         : SessionController.resume(
-            questions: widget.questions,
-            startIndex: widget.initialIndex,
-            previousAnswers: widget.previousAnswers,
-          );
+      questions: widget.questions,
+      startIndex: widget.initialIndex,
+      previousAnswers: widget.previousAnswers,
+    );
   }
 
   @override
@@ -118,6 +118,7 @@ class _SessionScreenState extends State<SessionScreen> {
           grade: widget.grade,
           progress: widget.progress,
         ),
+        name: 'Результат',
       );
       // Тема-дрилл не трогает грейдовую паузу (clearIncomplete: false), но чистит
       // свой тема-слот; полногрейдовая сессия чистит грейдовый слот.
@@ -196,7 +197,7 @@ class _SessionScreenState extends State<SessionScreen> {
                         // Длительность — главный (и единственный) рычаг видимости чистого фейда.
                         // 350мс читается заметно; 220мс глаз почти не ловит.
                         duration: motionDuration(
-                            context, const Duration(milliseconds: 350),),
+                          context, const Duration(milliseconds: 350),),
                         switchInCurve: Curves.easeInOut,
                         switchOutCurve: Curves.easeInOut,
                         transitionBuilder: (child, animation) =>
@@ -257,7 +258,7 @@ class _SessionScreenState extends State<SessionScreen> {
         const SizedBox(height: 18),
         ...List.generate(
           c.current.options.length,
-          (i) => _optionTile(c, i),
+              (i) => _optionTile(c, i),
         ),
         if (c.answered &&
             c.current.explanation != null &&
