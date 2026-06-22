@@ -80,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _pushGrades(Track track) {
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'Грейды'),
         builder: (_) => GradesScreen(track: track, progress: widget.progress),
       ),
     );

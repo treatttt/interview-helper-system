@@ -47,7 +47,7 @@ class ResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text('${result.points} из ${result.maxPoints} баллов',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 4),
             Text('$pct%',
@@ -63,6 +63,7 @@ class ResultScreen extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
+                    settings: const RouteSettings(name: 'Разбор'),
                     builder: (_) => ReviewScreen(
                       result: result,
                       track: track,
@@ -109,7 +110,7 @@ class ResultScreen extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 15)),
           const Spacer(),
           Text('$value',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
         ],
       ),

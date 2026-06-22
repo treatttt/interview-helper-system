@@ -8,9 +8,9 @@ import 'package:interview_helper_system/services/progress_service.dart';
 
 /// План запуска сессии: какие вопросы, с какого индекса, ранее отвеченные.
 typedef _SessionPlan = ({
-  List<Question> questions,
-  int startIndex,
-  List<AnsweredQuestion> previousAnswers,
+List<Question> questions,
+int startIndex,
+List<AnsweredQuestion> previousAnswers,
 });
 
 /// Экран грейдов — показывает список Junior/Middle/Senior для выбранного направления.
@@ -45,6 +45,7 @@ class _GradesScreenState extends State<GradesScreen> {
 
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'Вопросы'),
           builder: (_) => SessionScreen(
             track: widget.track,
             grade: grade,
@@ -64,10 +65,10 @@ class _GradesScreenState extends State<GradesScreen> {
   /// сессии грейда спрашивает «Продолжить / Начать заново», иначе берёт
   /// [remaining]. null — отмена (диалог закрыт или виджет размонтирован).
   Future<_SessionPlan?> _resolveSessionPlan(
-    Grade grade,
-    String gradeKey,
-    List<Question> remaining,
-  ) async {
+      Grade grade,
+      String gradeKey,
+      List<Question> remaining,
+      ) async {
     final incompleteRaw = widget.progress.loadIncompleteSession(gradeKey);
     if (incompleteRaw == null) return _freshPlan(remaining);
 
@@ -86,10 +87,10 @@ class _GradesScreenState extends State<GradesScreen> {
   }
 
   _SessionPlan _freshPlan(List<Question> remaining) => (
-        questions: remaining,
-        startIndex: 0,
-        previousAnswers: const <AnsweredQuestion>[],
-      );
+  questions: remaining,
+  startIndex: 0,
+  previousAnswers: const <AnsweredQuestion>[],
+  );
 
   /// Восстанавливает план продолжения из сохранённой сессии.
   _SessionPlan _resumePlan(Grade grade, IncompleteSession incomplete) {
@@ -101,16 +102,16 @@ class _GradesScreenState extends State<GradesScreen> {
     final previousAnswers = incomplete.answeredData
         .map(
           (data) => AnsweredQuestion(
-            question: byId[data.id]!,
-            selected: data.selected.toSet(),
-            outcome: AnswerOutcome.values.byName(data.outcome),
-          ),
-        )
+        question: byId[data.id]!,
+        selected: data.selected.toSet(),
+        outcome: AnswerOutcome.values.byName(data.outcome),
+      ),
+    )
         .toList();
     return (
-      questions: questions,
-      startIndex: incomplete.currentIndex,
-      previousAnswers: previousAnswers,
+    questions: questions,
+    startIndex: incomplete.currentIndex,
+    previousAnswers: previousAnswers,
     );
   }
 

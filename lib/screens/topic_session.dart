@@ -91,11 +91,11 @@ List<TopicProgress> buildTopicCatalog(List<Track> tracks,
 /// поэтому пуш ниже **await-ится** — лок держится всю сессию и второй тап по
 /// карточке темы не открывает второй экран.
 Future<void> startTopicSession(
-  BuildContext context, {
-  required List<Track> tracks,
-  required ProgressService progress,
-  required String topicTitle,
-}) =>
+    BuildContext context, {
+      required List<Track> tracks,
+      required ProgressService progress,
+      required String topicTitle,
+    }) =>
     _runTopicSession(
       context,
       tracks: tracks,
@@ -153,6 +153,7 @@ Future<bool> _maybeResumeTopic(BuildContext context,
   // Пуш await-ится: лок вызывающего держится до закрытия сессии.
   await Navigator.of(context).push(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: 'Вопросы'),
       builder: (_) => SessionScreen(
         track: args.track,
         grade: args.grade,
@@ -204,27 +205,27 @@ List<AnsweredQuestion>? _restoreAnswers(Map<String, Question> byId,
 ({
 Track track,
 Grade grade,
-  List<Question> questions,
-  int startIndex,
-  List<AnsweredQuestion> previousAnswers,
+List<Question> questions,
+int startIndex,
+List<AnsweredQuestion> previousAnswers,
 })? _resumeArgs(List<Track> tracks, IncompleteSession paused) {
   final loc = _findGrade(tracks, paused.gradeKey);
   if (loc == null) return null;
 
   final byId = {for (final q in loc.grade.questions) q.id: q};
   final questions =
-      paused.questionIds.map((id) => byId[id]).whereType<Question>().toList();
+  paused.questionIds.map((id) => byId[id]).whereType<Question>().toList();
   if (questions.length != paused.questionIds.length) return null;
 
   final previous = _restoreAnswers(byId, paused.answeredData);
   if (previous == null) return null;
 
   return (
-    track: loc.track,
-    grade: loc.grade,
-    questions: questions,
-    startIndex: paused.currentIndex,
-    previousAnswers: previous,
+  track: loc.track,
+  grade: loc.grade,
+  questions: questions,
+  startIndex: paused.currentIndex,
+  previousAnswers: previous,
   );
 }
 
@@ -232,11 +233,11 @@ Grade grade,
 /// Возвращает true, если сессия открыта. Пуш await-ится — лок вызывающего
 /// держится до закрытия сессии (защита от двойного тапа по карточке темы).
 Future<bool> _startFreshTopic(
-  BuildContext context,
-  List<Track> tracks,
+    BuildContext context,
+    List<Track> tracks,
     ProgressService progress,
-  String topicTitle,
-) async {
+    String topicTitle,
+    ) async {
   final sortedTracks = [...tracks]..sort((a, b) => a.order.compareTo(b.order));
   for (final track in sortedTracks) {
     final grades = [...track.grades]
@@ -250,6 +251,7 @@ Future<bool> _startFreshTopic(
       if (!context.mounted) return true;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'Вопросы'),
           builder: (_) => SessionScreen(
             track: track,
             grade: grade,
