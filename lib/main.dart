@@ -58,28 +58,29 @@ class InterviewHelperApp extends StatelessWidget {
         builder: _appBuilder,
         home: progress.onboardingDone
             ? MainShell(
-                repository: repository,
-                progress: progress,
-                themeService: themeService,
-              )
+          repository: repository,
+          progress: progress,
+          themeService: themeService,
+        )
             : OnboardingScreen(
-                onFinish: () {
-                  unawaited(progress.markOnboardingDone());
-                  final navigator = navigatorKey.currentState;
-                  if (navigator == null) return;
-                  unawaited(
-                    navigator.pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => MainShell(
-                          repository: repository,
-                          progress: progress,
-                          themeService: themeService,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+          onFinish: () {
+            unawaited(progress.markOnboardingDone());
+            final navigator = navigatorKey.currentState;
+            if (navigator == null) return;
+            unawaited(
+              navigator.pushReplacement(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'Главная'),
+                  builder: (_) => MainShell(
+                    repository: repository,
+                    progress: progress,
+                    themeService: themeService,
+                  ),
+                ),
               ),
+            );
+          },
+        ),
       ),
     );
   }
