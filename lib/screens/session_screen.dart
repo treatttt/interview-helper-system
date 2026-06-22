@@ -193,12 +193,12 @@ class _SessionScreenState extends State<SessionScreen> {
                       // обновляет подсветку мгновенно, без анимации. Уважает
                       // reduce-motion через motionDuration.
                       AnimatedSwitcher(
+                        // Длительность — главный (и единственный) рычаг видимости чистого фейда.
+                        // 350мс читается заметно; 220мс глаз почти не ловит.
                         duration: motionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
-                        ),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
+                            context, const Duration(milliseconds: 350),),
+                        switchInCurve: Curves.easeInOut,
+                        switchOutCurve: Curves.easeInOut,
                         transitionBuilder: (child, animation) =>
                             FadeTransition(opacity: animation, child: child),
                         child: _questionBlock(c),
