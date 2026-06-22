@@ -27,10 +27,10 @@ jobs:
           FEEDBACK_URL: ${{ vars.FEEDBACK_URL_TESTERS }}
         run: |
           flutter build web --release \
-            --base-href /helper-preview/preview/ \
+            --base-href /interview-helper-system/testers/ \
             --dart-define=FEEDBACK=true \
             --dart-define=FEEDBACK_URL=$FEEDBACK_URL
-          mv /tmp/testers build/web/preview 
+          mv build/web /tmp/testers
 
       - name: Build team version (root)
         env:
