@@ -5,12 +5,19 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read          # только чтение репозитория для checkout
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@5c7944e73c4c2a096b17a9cb74d65b6c2bbafbde # v2.9.1
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
@@ -18,10 +25,10 @@ jobs:
       - run: flutter pub get --enforce-lockfile
 
       # Две версии из одного коммита в один артефакт Pages:
-      #   /          → команда (чисто, без фидбека)
-      #   /testers/  → тестеры (с фидбеком; параметры формы из Variables)
-      # Тестерский билд собирается первым и отодвигается в /tmp, чтобы
-      # командный стартовал с чистого build/web; затем вкладывается подпапкой.
+      #   /          → команда   (FEEDBACK_URL_TEAM)
+      #   /testers/  → тестеры   (FEEDBACK_URL_TESTERS)
+      # Тестерский билд собирается первым и отодвигается в /tmp, чтобы второй
+      # билд стартовал с чистого build/web; затем вкладывается как подпапка.
       - name: Build testers version (/testers)
         env:
           FORM_URL: ${{ vars.FEEDBACK_FORM_URL }}
@@ -30,6 +37,7 @@ jobs:
           ENTRY_SCREEN: ${{ vars.FEEDBACK_ENTRY_SCREEN }}
           ENTRY_VERSION: ${{ vars.FEEDBACK_ENTRY_VERSION }}
           ENTRY_ID: ${{ vars.FEEDBACK_ENTRY_ID }}
+
         run: |
           flutter build web --release \
             --base-href /interview-helper-system/testers/ \
@@ -42,10 +50,14 @@ jobs:
             --dart-define=FEEDBACK_ENTRY_ID="$ENTRY_ID"
           mv build/web /tmp/testers
 
-      - name: Build team version (root, clean)
+      - name: Build team version (root)
+        env:
+          FEEDBACK_URL: ${{ vars.FEEDBACK_URL_TEAM }}
         run: |
           flutter build web --release \
-            --base-href /interview-helper-system/
+            --base-href /interview-helper-system/ \
+            --dart-define=FEEDBACK=true \
+            --dart-define=FEEDBACK_URL=$FEEDBACK_URL
           mv /tmp/testers build/web/testers
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
@@ -62,5 +74,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@5c7944e73c4c2a096b17a9cb74d65b6c2bbafbde # v2.9.1
+        with:
+          egress-policy: audit
+
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

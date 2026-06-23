@@ -11,7 +11,11 @@ const bool kFeedbackEnabled = bool.fromEnvironment('FEEDBACK');
 
 /// URL `.../formResponse` Google-формы. Можно переопределить флагом
 /// `--dart-define=FEEDBACK_FORM_URL=...`, иначе берётся значение по умолчанию.
-const String kFeedbackFormUrl = String.fromEnvironment('FEEDBACK_FORM_URL');
+const String kFeedbackFormUrl = String.fromEnvironment(
+  'FEEDBACK_FORM_URL',
+  defaultValue:
+  '',
+);
 
 /// ID поля «Отчёт» (весь текст). Обязательное — без него отправка выключена.
 /// Вставь сюда `entry.NNN` из «Получить заполненную ссылку».
