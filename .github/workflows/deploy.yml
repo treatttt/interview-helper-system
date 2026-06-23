@@ -31,12 +31,23 @@ jobs:
       # билд стартовал с чистого build/web; затем вкладывается как подпапка.
       - name: Build testers version (/testers)
         env:
-          FEEDBACK_URL: ${{ vars.FEEDBACK_URL_TESTERS }}
+          FORM_URL: ${{ vars.FEEDBACK_FORM_URL }}
+          ENTRY_TEXT: ${{ vars.FEEDBACK_ENTRY_TEXT }}
+          ENTRY_TYPE: ${{ vars.FEEDBACK_ENTRY_TYPE }}
+          ENTRY_SCREEN: ${{ vars.FEEDBACK_ENTRY_SCREEN }}
+          ENTRY_VERSION: ${{ vars.FEEDBACK_ENTRY_VERSION }}
+          ENTRY_ID: ${{ vars.FEEDBACK_ENTRY_ID }}
+
         run: |
           flutter build web --release \
             --base-href /interview-helper-system/testers/ \
             --dart-define=FEEDBACK=true \
-            --dart-define=FEEDBACK_URL=$FEEDBACK_URL
+            --dart-define=FEEDBACK_FORM_URL="$FORM_URL" \
+            --dart-define=FEEDBACK_ENTRY_TEXT="$ENTRY_TEXT" \
+            --dart-define=FEEDBACK_ENTRY_TYPE="$ENTRY_TYPE" \
+            --dart-define=FEEDBACK_ENTRY_SCREEN="$ENTRY_SCREEN" \
+            --dart-define=FEEDBACK_ENTRY_VERSION="$ENTRY_VERSION" \
+            --dart-define=FEEDBACK_ENTRY_ID="$ENTRY_ID"
           mv build/web /tmp/testers
 
       - name: Build team version (root)
