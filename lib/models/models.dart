@@ -90,6 +90,7 @@ class Track {
     required this.order,
     required this.grades,
     this.description,
+    this.category,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -97,6 +98,7 @@ class Track {
         title: json['title'] as String,
         description: json['description'] as String?,
         order: json['order'] as int,
+        category: json['category'] as String?,
         grades: (json['grades'] as List)
             .map((e) => Grade.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -105,6 +107,11 @@ class Track {
   final String title;
   final String? description;
   final int order;
+
+  /// Категория трека. "language" — языковой трек (Go, Python и т.д.),
+  /// скрывается из секции «Все направления» на Обзоре.
+  final String? category;
+
   final List<Grade> grades;
 }
 

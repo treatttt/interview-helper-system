@@ -115,7 +115,9 @@ class _HomeScreenState extends State<HomeScreen>
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else
-                    ...tracks.map(_trackRow),
+                    ...tracks
+                        .where((t) => t.category != 'language')
+                        .map(_trackRow),
                 ],
               ),
             ),

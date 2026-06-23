@@ -1935,6 +1935,7 @@
       "id": "go",
       "title": "Go",
       "description": "Чтение кода: ошибки, вывод, проблемы",
+      "category": "language",
       "order": 4,
       "grades": [
         {
@@ -2015,6 +2016,7 @@
       "id": "python",
       "title": "Python",
       "description": "Чтение кода: ошибки, вывод, проблемы",
+      "category": "language",
       "order": 5,
       "grades": [
         {
@@ -2095,6 +2097,7 @@
       "id": "java",
       "title": "Java",
       "description": "Чтение кода: ошибки, вывод, проблемы",
+      "category": "language",
       "order": 6,
       "grades": [
         {
@@ -2175,6 +2178,7 @@
       "id": "cpp",
       "title": "C++",
       "description": "Чтение кода: ошибки, вывод, проблемы",
+      "category": "language",
       "order": 7,
       "grades": [
         {
@@ -2255,6 +2259,7 @@
       "id": "javascript",
       "title": "JavaScript",
       "description": "Чтение кода: ошибки, вывод, проблемы",
+      "category": "language",
       "order": 8,
       "grades": [
         {
@@ -2335,6 +2340,7 @@
       "id": "sql",
       "title": "SQL",
       "description": "Чтение кода: ошибки, вывод, проблемы",
+      "category": "language",
       "order": 9,
       "grades": [
         {
@@ -2415,6 +2421,7 @@
       "id": "json",
       "title": "JSON",
       "description": "Чтение кода: синтаксис, типы, ловушки",
+      "category": "language",
       "order": 10,
       "grades": [
         {

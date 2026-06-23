@@ -36,8 +36,9 @@ Track _track({
   required String title,
   int order = 0,
   List<Grade> grades = const [],
+  String? category,
 }) =>
-    Track(id: id, title: title, order: order, grades: grades);
+    Track(id: id, title: title, order: order, grades: grades, category: category);
 
 void main() {
   late MockQuestionRepository repo;
@@ -271,6 +272,63 @@ void main() {
 
       expect(find.byType(GradesScreen), findsNothing);
       expect(find.byType(SessionScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  // === Фильтрация языковых треков в «Все направления» =======================
+  testWidgets(
+    'трек с category language не отображается в «Все направления»',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          _track(id: 'analytics', title: 'Аналитика'),
+          _track(id: 'go', title: 'Go', category: 'language'),
+        ],
+      );
+
+      await pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Аналитика'), findsOneWidget);
+      expect(find.text('Go'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'трек без category (или category != language) отображается в «Все направления»',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          _track(id: 'analytics', title: 'Аналитика'),
+          _track(id: 'custom', title: 'Кастом', category: 'other'),
+        ],
+      );
+
+      await pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Аналитика'), findsOneWidget);
+      expect(find.text('Кастом'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'когда все треки языковые — секция направлений пустая, краша нет',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          _track(id: 'go', title: 'Go', category: 'language'),
+          _track(id: 'python', title: 'Python', category: 'language'),
+        ],
+      );
+
+      await pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Все направления'), findsOneWidget);
+      expect(find.text('Go'), findsNothing);
+      expect(find.text('Python'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
