@@ -2,36 +2,53 @@
 //
 // Весь модуль `lib/dev/` попадает в бинарь только когда [kFeedbackEnabled]
 // истинен. В прод-сборке константа равна `false`, и tree-shaking полностью
-// удаляет связанный код — прод-путь не меняется.
+// удаляет связанный код (включая захардкоженные ниже строки) — прод-путь
+// и прод-бинарь не меняются.
 
-/// Включает оверлей обратной связи.
-///
-/// Тестовая сборка: `flutter build apk --dart-define=FEEDBACK=true`.
-/// Прод-сборка: без флага → `false` → код вырезается компилятором.
+/// Включает оверлей обратной связи. НЕ хардкодить в `true` — иначе фидбек
+/// попадёт и в прод-сборку. Тестовый билд: `--dart-define=FEEDBACK=true`.
 const bool kFeedbackEnabled = bool.fromEnvironment('FEEDBACK');
 
-/// URL `.../formResponse` Google-формы для авто-отправки отчёта.
-/// `--dart-define=FEEDBACK_FORM_URL=https://docs.google.com/forms/d/e/XXX/formResponse`
-const String kFeedbackFormUrl = String.fromEnvironment('FEEDBACK_FORM_URL');
+/// URL `.../formResponse` Google-формы. Можно переопределить флагом
+/// `--dart-define=FEEDBACK_FORM_URL=...`, иначе берётся значение по умолчанию.
+const String kFeedbackFormUrl = String.fromEnvironment(
+  'FEEDBACK_FORM_URL',
+  defaultValue:
+  '',
+);
 
-/// ID поля формы для полного текста отчёта (catch-all). Обязательное.
-/// Без него авто-отправка выключена. Пример: `entry.123456789`.
-const String kEntryText = String.fromEnvironment('FEEDBACK_ENTRY_TEXT');
+/// ID поля «Отчёт» (весь текст). Обязательное — без него отправка выключена.
+/// Вставь сюда `entry.NNN` из «Получить заполненную ссылку».
+const String kEntryText = String.fromEnvironment(
+  'FEEDBACK_ENTRY_TEXT',
+  defaultValue: '', // ← entry.NNN поля «Отчёт»
+);
 
 /// ID поля «Тип» (Баг/Идея). Опционально — отдельная колонка для фильтра.
-const String kEntryType = String.fromEnvironment('FEEDBACK_ENTRY_TYPE');
+const String kEntryType = String.fromEnvironment(
+  'FEEDBACK_ENTRY_TYPE',
+  defaultValue: '', // ← entry.NNN поля «Тип» (или оставь пустым)
+);
 
 /// ID поля «Экран». Опционально.
-const String kEntryScreen = String.fromEnvironment('FEEDBACK_ENTRY_SCREEN');
+const String kEntryScreen = String.fromEnvironment(
+  'FEEDBACK_ENTRY_SCREEN',
+  defaultValue: '', // ← entry.NNN поля «Экран» (или оставь пустым)
+);
 
 /// ID поля «Версия». Опционально.
-const String kEntryVersion = String.fromEnvironment('FEEDBACK_ENTRY_VERSION');
+const String kEntryVersion = String.fromEnvironment(
+  'FEEDBACK_ENTRY_VERSION',
+  defaultValue: '', // ← entry.NNN поля «Версия» (или оставь пустым)
+);
 
 /// ID поля «ID отчёта» для сквозного отслеживания. Опционально.
-const String kEntryId = String.fromEnvironment('FEEDBACK_ENTRY_ID');
+const String kEntryId = String.fromEnvironment(
+  'FEEDBACK_ENTRY_ID',
+  defaultValue: '', // ← entry.NNN поля «ID отчёта» (или оставь пустым)
+);
 
 /// Версия приложения в отчёте. По умолчанию совпадает с pubspec.
-/// `--dart-define=APP_VERSION=1.2.0+5`
 const String kFeedbackAppVersion = String.fromEnvironment(
   'APP_VERSION',
   defaultValue: '1.0.0+1',
