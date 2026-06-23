@@ -1,4 +1,4 @@
-# Interview Helper — тренажёр собеседований (System Analyst Junior)
+# Interview Helper — тренажёр собеседований
 
 Кроссплатформенное приложение на Flutter (iOS + Android из одного кода).
 MVP: вопросы с вариантами ответа, мгновенный фидбэк, прогресс по темам, XP и streak.
