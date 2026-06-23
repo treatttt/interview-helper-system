@@ -459,19 +459,6 @@
               "explanation": "Составной индекс (A, B) работает по принципу «левого префикса»: запросы, начинающиеся с первой колонки (customer_id), могут его использовать. Запрос только по второй колонке (order_date) без первой — не может использовать индекс как стартовую точку, оптимизатор чаще делает full scan. Варианты A, B, D начинаются с customer_id и индекс применим."
             },
             {
-              "id": "analytics_middle_db5",
-              "topic": "Базы данных и SQL",
-              "text": "Аналитик выполнил EXPLAIN ANALYZE и увидел операцию «Seq Scan» на таблице с 10 млн строк. Что это означает и когда это проблема?",
-              "options": [
-                "Последовательное сканирование — оптимальная стратегия для любой таблицы",
-                "Последовательное сканирование означает чтение всех строк подряд; это проблема, если запрос выбирает < 1–5% строк и должен использовать индекс",
-                "Seq Scan всегда указывает на отсутствующий индекс, который нужно создать",
-                "Это означает, что данные упорядочены на диске, что ускоряет запрос"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Seq Scan читает таблицу целиком. Это нормально при выборке большой доли данных (>10–20% строк), когда Index Scan давал бы множество случайных I/O. Но при узкой выборке (< 1–5%) Seq Scan на 10 млн строк — сигнал тревоги: возможно, нет нужного индекса или оптимизатор недооценивает селективность. Простое создание индекса не всегда решает проблему — нужно анализировать статистику."
-            },
-            {
               "id": "analytics_middle_db6",
               "topic": "Базы данных и SQL",
               "text": "Транзакция A блокирует таблицу Orders и ждёт таблицу Customers. Транзакция B блокирует таблицу Customers и ждёт Orders. Что произойдёт в большинстве СУБД?",
@@ -483,19 +470,6 @@
               ],
               "correctIndexes": [1],
               "explanation": "СУБД имеет детектор дедлоков (обычно проверка через wait-for graph). При обнаружении цикла ожидания одна транзакция (обычно та, что «дешевле» откатить) получает ошибку deadlock и откатывается, освобождая блокировки для второй. Приложение должно перехватить ошибку и повторить откатанную транзакцию. Профилактика: всегда захватывать ресурсы в одном порядке."
-            },
-            {
-              "id": "analytics_middle_db7",
-              "topic": "Базы данных и SQL",
-              "text": "Что такое «покрывающий индекс» (covering index) и какую выгоду он даёт?",
-              "options": [
-                "Индекс, который охватывает несколько таблиц одновременно",
-                "Индекс, содержащий все колонки, нужные запросу — позволяет СУБД вернуть данные без обращения к самой таблице",
-                "Индекс с условием WHERE для фильтрации строк при создании",
-                "Индекс, автоматически созданный СУБД для ускорения JOIN"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Covering index включает все колонки, запрашиваемые в SELECT и WHERE. СУБД выполняет «Index Only Scan» — читает только индекс, не обращаясь к heap (основным страницам таблицы). Это особенно выгодно при высоконагруженных аналитических запросах. В PostgreSQL это достигается через INCLUDE в CREATE INDEX, в MySQL — через composite index. Частичный индекс (вариант C) — другая концепция: индекс с условием WHERE при создании."
             },
             {
               "id": "analytics_middle_db8",
@@ -550,32 +524,6 @@
               "explanation": "Рекурсивный CTE состоит из якорного (начальный набор) и рекурсивного запроса, который ссылается на сам CTE. Идеален для обхода org-chart (начальник → подчинённые), дерева категорий, графа зависимостей. Без рекурсивного CTE такие задачи решались бы множеством запросов в приложении. Параллелизм и временные таблицы — отдельные механизмы СУБД."
             },
             {
-              "id": "analytics_middle_db12",
-              "topic": "Базы данных и SQL",
-              "text": "Аналитик проектирует таблицу событий с миллиардами строк и запросами только по последним 3 месяцам. Какой механизм поможет ускорить запросы и упростить архивирование старых данных?",
-              "options": [
-                "Создать отдельный индекс по дате события",
-                "Секционирование (партиционирование) таблицы по диапазону дат: каждая секция — один месяц",
-                "Перенести старые данные в NoSQL-базу",
-                "Увеличить RAM сервера для кеширования всей таблицы"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Range partitioning по дате позволяет СУБД при запросе «за последние 3 месяца» сканировать только 3 секции вместо всей таблицы (partition pruning). Архивирование превращается в DROP PARTITION — мгновенная операция вместо DELETE миллионов строк. Один индекс на миллиард строк тоже велик и медленен при перестройке. RAM не масштабируется до петабайт."
-            },
-            {
-              "id": "analytics_middle_db13",
-              "topic": "Базы данных и SQL",
-              "text": "Зачем добавляют реплику для чтения (read replica) к основной БД?",
-              "options": [
-                "Чтобы реплика принимала записи при недоступности мастера",
-                "Чтобы разгрузить мастер от тяжёлых SELECT-запросов и аналитики, не мешая операционной нагрузке",
-                "Реплика гарантирует абсолютно актуальные данные в реальном времени",
-                "Реплика нужна только для резервного копирования"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Read replica принимает реплицированные данные от мастера (асинхронно или синхронно) и обслуживает только SELECT. Это снижает нагрузку на мастер и позволяет запускать тяжёлые отчёты без замедления OLTP. Важно: реплика может отставать (replication lag), поэтому данные могут быть немного устаревшими. Запись на реплику не поддерживается в стандартной конфигурации."
-            },
-            {
               "id": "analytics_middle_db14",
               "topic": "Базы данных и SQL",
               "text": "Таблица содержит 100 строк, из них 10 имеют NULL в колонке amount. Какой результат вернёт COUNT(amount) vs COUNT(*)?",
@@ -617,7 +565,7 @@
             {
               "id": "analytics_middle_db17",
               "topic": "Базы данных и SQL",
-              "text": "Какой уровень изоляции транзакций предотвращает фантомные чтения (phantom reads)?",
+              "text": "По стандарту ANSI SQL, какой минимальный уровень изоляции гарантирует защиту от фантомных чтений (phantom reads)?",
               "options": [
                 "READ UNCOMMITTED",
                 "READ COMMITTED",
@@ -625,20 +573,7 @@
                 "SERIALIZABLE"
               ],
               "correctIndexes": [3],
-              "explanation": "Phantom read: транзакция выполняет один и тот же запрос дважды, и во втором случае появляются новые строки (другая транзакция вставила и зафиксировала их). REPEATABLE READ предотвращает изменение уже прочитанных строк, но не добавление новых. SERIALIZABLE — единственный уровень, гарантирующий полную изоляцию, включая защиту от фантомных чтений. В PostgreSQL REPEATABLE READ тоже защищает от phantom read (реализация через MVCC), но стандарт SQL гарантирует это только для SERIALIZABLE."
-            },
-            {
-              "id": "analytics_middle_db18",
-              "topic": "Базы данных и SQL",
-              "text": "При шардировании (sharding) по user_id один шард получает непропорционально высокую нагрузку. Как называется эта проблема и как её решить?",
-              "options": [
-                "Replication lag — лечится синхронной репликацией",
-                "Hot spot (горячий узел) — решается выбором лучшего ключа шардирования или составным ключом (user_id + hash)",
-                "N+1 проблема — лечится batching-запросами",
-                "Index bloat — лечится VACUUM FULL"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Hot spot возникает, когда распределение данных по шардам неравномерно: например, несколько крупных пользователей генерируют 80% запросов и попадают на один шард. Решения: consistent hashing для равномерного распределения, составной ключ (user_id % shard_count), resharding при росте, или переход к hash-sharding вместо range-sharding. N+1 и index bloat — несвязанные проблемы."
+              "explanation": "Phantom read: транзакция выполняет один и тот же запрос дважды, и во втором случае появляются новые строки (другая транзакция вставила и зафиксировала их). По стандарту ANSI SQL: REPEATABLE READ предотвращает изменение уже прочитанных строк, но не добавление новых — phantom read на этом уровне возможен. SERIALIZABLE — единственный уровень, гарантирующий полную изоляцию по стандарту, включая защиту от phantom reads. Примечание: PostgreSQL реализует REPEATABLE READ через MVCC и фактически тоже защищает от phantom reads, однако это особенность конкретной СУБД, а не требование стандарта."
             },
             {
               "id": "analytics_middle_db19",
@@ -667,32 +602,6 @@
               "explanation": "Нормализация оптимизирована для записи: устраняет аномалии обновления. Денормализация — для чтения: сохраняет избыточные данные чтобы избежать JOIN. В аналитике (OLAP, DWH) данные загружаются пакетно и редко обновляются, а запросы требуют соединений десятков таблиц. Звёздная схема с денормализованными dimension-таблицами — стандарт для DWH. В OLTP денормализация создаёт аномалии."
             },
             {
-              "id": "analytics_middle_db21",
-              "topic": "Базы данных и SQL",
-              "text": "Зачем используется пул соединений (connection pool) при работе с базой данных?",
-              "options": [
-                "Пул соединений шифрует трафик между приложением и базой",
-                "Создание нового соединения с СУБД — дорогая операция; пул держит открытые соединения и переиспользует их, снижая латентность",
-                "Пул соединений балансирует запросы между несколькими таблицами",
-                "Пул нужен только при использовании нескольких баз данных одновременно"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Установка TCP-соединения, аутентификация и инициализация сессии в СУБД занимают несколько миллисекунд. При сотнях запросов в секунду это существенно. Connection pool (PgBouncer, HikariCP) держит N соединений открытыми, приложение «занимает» соединение, работает и возвращает обратно. Минус: ограниченное число соединений к СУБД, нужно правильно настраивать размер пула."
-            },
-            {
-              "id": "analytics_middle_db22",
-              "topic": "Базы данных и SQL",
-              "text": "Что такое частичный индекс (partial index) и когда он полезен?",
-              "options": [
-                "Индекс, охватывающий только часть колонок таблицы (аналог composite index)",
-                "Индекс с условием WHERE при создании — индексируются только строки, удовлетворяющие условию; полезен для фильтрации редких значений",
-                "Индекс, который автоматически перестраивается при достижении 50% изменений",
-                "Индекс, разделённый между несколькими узлами кластера"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Пример: `CREATE INDEX ON orders(id) WHERE status = 'pending'` — индекс включает только строки с незакрытыми заказами. Если таких строк 1% от миллиарда, индекс занимает 1% пространства обычного. Запросы по status = 'pending' используют компактный быстрый индекс. Для статусов 'completed' (99%) индекс не тратит место и не замедляет INSERT. Composite index (вариант A) — другая концепция."
-            },
-            {
               "id": "analytics_middle_db23",
               "topic": "Базы данных и SQL",
               "text": "Аналитик хочет получить итоги по отделам и общий итог по всей таблице одним запросом. Какой механизм SQL позволяет это сделать?",
@@ -719,19 +628,6 @@
               "explanation": "CAP — Consistency (все узлы видят одинаковые данные), Availability (каждый запрос получает ответ), Partition tolerance (система работает при сетевом разрыве между узлами). Разрывы в сети неизбежны в распределённых системах, поэтому практически выбор между C и A: CP-системы (MongoDB в strict mode, HBase) жертвуют доступностью при разрыве, AP-системы (Cassandra, CouchDB) жертвуют согласованностью. ACID — другая аббревиатура."
             },
             {
-              "id": "analytics_middle_db25",
-              "topic": "Базы данных и SQL",
-              "text": "Аналитик заметил, что после добавления VIEW к сложному запросу производительность упала. Что может быть причиной?",
-              "options": [
-                "VIEW всегда медленнее прямого запроса, так как добавляет слой абстракции с накладными расходами",
-                "Оптимизатор не смог «протолкнуть» фильтр WHERE внутрь VIEW и выполнил весь подзапрос VIEW до фильтрации",
-                "VIEW автоматически добавляет сортировку, которая замедляет запрос",
-                "VIEW блокирует таблицу на время выполнения запроса"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Обычный VIEW — это подстановка текста запроса. В идеале оптимизатор «проталкивает» (pushdown) фильтр внутрь VIEW. Но сложные VIEW (с DISTINCT, LIMIT, window functions) мешают этому: СУБД выполняет весь VIEW, потом фильтрует результат — вместо того чтобы фильтровать внутри. Это называется «view merging failure». Проверить можно через EXPLAIN: если видно Materialize или Sort до Filter — pushdown не сработал."
-            },
-            {
               "id": "analytics_middle_db26",
               "topic": "Базы данных и SQL",
               "text": "При массовом импорте данных аналитик временно отключил проверку внешних ключей. Какой риск при этом возникает?",
@@ -756,19 +652,6 @@
               ],
               "correctIndexes": [1],
               "explanation": "LIKE с ведущим процентом не может использовать B-tree индекс — полное сканирование таблицы на каждый поиск. FTS создаёт инвертированный индекс (слово → список документов), поддерживает стемминг/лемматизацию («бегут» = «бежать»), операторы И/ИЛИ/НЕ, ранжирование по релевантности. PostgreSQL: `tsvector`, `GIN`-индекс, `ts_rank`. Цена: индекс нужно поддерживать, настройка словарей требует усилий."
-            },
-            {
-              "id": "analytics_middle_db28",
-              "topic": "Базы данных и SQL",
-              "text": "Команда проводит миграцию базы данных с добавлением NOT NULL колонки в таблицу с 50 млн строк. Почему нельзя просто выполнить ALTER TABLE ... ADD COLUMN ... NOT NULL DEFAULT 'value' в прод?",
-              "options": [
-                "СУБД не позволяет добавлять NOT NULL колонки в существующую таблицу",
-                "В большинстве СУБД эта операция заблокирует таблицу на время заполнения всех строк дефолтным значением — минуты/часы недоступности",
-                "NOT NULL без DEFAULT всегда вызывает ошибку, поэтому DEFAULT обязателен",
-                "ALTER TABLE немедленно завершается, проблем нет"
-              ],
-              "correctIndexes": [1],
-              "explanation": "Классическая проблема «блокирующей миграции»: в PostgreSQL < 11 ADD COLUMN с DEFAULT переписывало все строки, блокируя таблицу. PostgreSQL 11+ хранит DEFAULT на уровне метаданных — ADD COLUMN мгновенен. В MySQL / MariaDB без Online DDL операция блокирует таблицу на всё время. Безопасный паттерн: добавить nullable-колонку → заполнить батчами → добавить NOT NULL constraint. Инструменты: gh-ost, pt-online-schema-change."
             },
             {
               "id": "analytics_middle_db29",
@@ -2043,6 +1926,566 @@
           "id": "senior",
           "title": "Senior",
           "description": "Экспертные знания и системное мышление",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "go",
+      "title": "Go",
+      "description": "Чтение кода: ошибки, вывод, проблемы",
+      "order": 4,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки языка Go",
+          "order": 1,
+          "questions": [
+            {
+              "id": "go_junior_001",
+              "topic": "Массивы и срезы",
+              "codeLanguage": "go",
+              "codeSnippet": "package main\n\nimport \"fmt\"\n\nfunc main() {\n    a := [3]int{1, 2, 3}\n    b := a\n    b[0] = 99\n    fmt.Println(a[0])\n}",
+              "text": "Что выведет программа?",
+              "options": ["99", "1", "0", "Ошибка компиляции"],
+              "correctIndexes": [1],
+              "explanation": "В Go массив — значение, а не ссылка. b := a копирует весь массив целиком. Изменение b[0] не затрагивает a. Если бы a был срезом ([]int{...}), b := a создал бы второй заголовок среза с тем же базовым массивом, и тогда b[0] = 99 изменило бы a[0]."
+            },
+            {
+              "id": "go_junior_002",
+              "topic": "Замыкания и горутины",
+              "codeLanguage": "go",
+              "codeSnippet": "package main\n\nimport (\n    \"fmt\"\n    \"sync\"\n)\n\nfunc main() {\n    var wg sync.WaitGroup\n    for i := 0; i < 3; i++ {\n        wg.Add(1)\n        go func() {\n            defer wg.Done()\n            fmt.Println(i)\n        }()\n    }\n    wg.Wait()\n}",
+              "text": "Что чаще всего выведет программа?",
+              "options": ["0\n1\n2 (в произвольном порядке)", "3\n3\n3", "Ошибка компиляции", "Дедлок"],
+              "correctIndexes": [1],
+              "explanation": "Замыкание захватывает переменную i по ссылке, а не по значению. К моменту запуска горутин цикл обычно уже завершён и i == 3, поэтому все три горутины выводят 3. Исправление: передать i как аргумент — go func(n int) { fmt.Println(n) }(i)."
+            },
+            {
+              "id": "go_junior_003",
+              "topic": "defer",
+              "codeLanguage": "go",
+              "codeSnippet": "package main\n\nimport \"fmt\"\n\nfunc main() {\n    for i := 0; i < 3; i++ {\n        defer fmt.Println(i)\n    }\n}",
+              "text": "Что выведет программа?",
+              "options": ["0\n1\n2", "2\n1\n0", "2\n2\n2", "0\n0\n0"],
+              "correctIndexes": [1],
+              "explanation": "defer добавляет вызовы в стек и выполняет их по LIFO при выходе из функции. Аргументы defer fmt.Println(i) вычисляются в момент вызова defer (не при исполнении), поэтому фиксируются значения 0, 1, 2. Порядок исполнения — обратный: 2, 1, 0."
+            },
+            {
+              "id": "go_junior_004",
+              "topic": "Массивы и срезы",
+              "codeLanguage": "go",
+              "codeSnippet": "package main\n\nimport \"fmt\"\n\nfunc main() {\n    s := make([]int, 3, 5)\n    s[0], s[1], s[2] = 1, 2, 3\n    t := s\n    t = append(t, 4)\n    t[0] = 99\n    fmt.Println(s[0])\n}",
+              "text": "Что выведет программа?",
+              "options": ["1", "99", "0", "Паника"],
+              "correctIndexes": [1],
+              "explanation": "s имеет len=3, cap=5. t := s копирует заголовок среза — оба указывают на один базовый массив. append(t, 4) не превышает cap=5, реаллокации нет: t и s по-прежнему разделяют массив. t[0] = 99 изменяет тот же элемент, что и s[0]. Результат: 99. Если бы cap был исчерпан, append создал бы новый массив и s[0] не изменился."
+            },
+            {
+              "id": "go_junior_005",
+              "topic": "Отображения (map)",
+              "codeLanguage": "go",
+              "codeSnippet": "package main\n\nimport \"fmt\"\n\nfunc main() {\n    var m map[string]int\n    m[\"key\"] = 1\n    fmt.Println(m[\"key\"])\n}",
+              "text": "Что произойдёт при запуске?",
+              "options": ["Выведет: 1", "Выведет: 0", "Паника: assignment to entry in nil map", "Ошибка компиляции"],
+              "correctIndexes": [2],
+              "explanation": "var m map[string]int объявляет nil-отображение. Чтение из nil map безопасно (возвращает нулевое значение), но запись вызывает панику. Исправление: инициализировать — m := make(map[string]int) или m := map[string]int{}."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "Конкурентность, интерфейсы, производительность",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "Архитектурные паттерны и edge cases",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "python",
+      "title": "Python",
+      "description": "Чтение кода: ошибки, вывод, проблемы",
+      "order": 5,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки Python",
+          "order": 1,
+          "questions": [
+            {
+              "id": "python_junior_001",
+              "topic": "Мутабельные аргументы",
+              "codeLanguage": "python",
+              "codeSnippet": "def add_item(item, lst=[]):\n    lst.append(item)\n    return lst\n\nprint(add_item(1))\nprint(add_item(2))",
+              "text": "Что выведет программа?",
+              "options": ["[1]\n[2]", "[1]\n[1, 2]", "[1, 2]\n[1, 2]", "TypeError"],
+              "correctIndexes": [1],
+              "explanation": "Значение по умолчанию lst=[] создаётся один раз при определении функции, а не при каждом вызове. Это общий изменяемый объект: первый вызов добавляет 1 → [1], второй изменяет тот же список → [1, 2]. Исправление: использовать None как значение по умолчанию — if lst is None: lst = []."
+            },
+            {
+              "id": "python_junior_002",
+              "topic": "Идентичность объектов",
+              "codeLanguage": "python",
+              "codeSnippet": "a = 256\nb = 256\nc = 257\nd = 257\nprint(a is b)\nprint(c is d)",
+              "text": "Что выведет программа?",
+              "options": ["True\nTrue", "True\nFalse", "False\nFalse", "False\nTrue"],
+              "correctIndexes": [1],
+              "explanation": "Python кэширует небольшие целые числа от -5 до 256: a и b ссылаются на один объект, a is b — True. Число 257 выходит за границу кэша: c и d — разные объекты в памяти, c is d — False. is проверяет идентичность (тот же адрес), а не равенство значений — для сравнения значений используйте ==."
+            },
+            {
+              "id": "python_junior_003",
+              "topic": "Замыкания",
+              "codeLanguage": "python",
+              "codeSnippet": "funcs = []\nfor i in range(3):\n    funcs.append(lambda: i)\n\nprint(funcs[0]())\nprint(funcs[1]())\nprint(funcs[2]())",
+              "text": "Что выведет программа?",
+              "options": ["0\n1\n2", "2\n2\n2", "3\n3\n3", "NameError: name 'i' is not defined"],
+              "correctIndexes": [1],
+              "explanation": "Лямбда захватывает переменную i по имени (позднее связывание), а не её значение в момент создания. После завершения цикла i == 2, поэтому все три функции возвращают 2. Исправление: зафиксировать значение через аргумент по умолчанию — lambda i=i: i."
+            },
+            {
+              "id": "python_junior_004",
+              "topic": "Копирование объектов",
+              "codeLanguage": "python",
+              "codeSnippet": "a = [[1, 2], [3, 4]]\nb = a.copy()\nb[0][0] = 99\nprint(a[0][0])",
+              "text": "Что выведет программа?",
+              "options": ["1", "99", "[99, 2]", "TypeError"],
+              "correctIndexes": [1],
+              "explanation": "a.copy() — поверхностная копия (shallow copy): новый внешний список, но внутренние списки — те же объекты. b[0] и a[0] указывают на один список. b[0][0] = 99 меняет и a[0][0]. Для независимого копирования: import copy; b = copy.deepcopy(a)."
+            },
+            {
+              "id": "python_junior_005",
+              "topic": "Целочисленное деление",
+              "codeLanguage": "python",
+              "codeSnippet": "print(7 // 2)\nprint(-7 // 2)",
+              "text": "Что выведет программа?",
+              "options": ["3\n-3", "3\n-4", "3.5\n-3.5", "3\n-3.5"],
+              "correctIndexes": [1],
+              "explanation": "Оператор // в Python выполняет floor division — округление к минус бесконечности. 7 // 2 = 3 (3×2=6 ≤ 7). -7 // 2 = -4, потому что -4×2=-8 ≤ -7 (а не -3, что было бы усечением к нулю как в C/Java). Для усечения к нулю используйте int(-7 / 2)."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "Декораторы, генераторы, GIL, метаклассы",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "Производительность, async, CPython internals",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "java",
+      "title": "Java",
+      "description": "Чтение кода: ошибки, вывод, проблемы",
+      "order": 6,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки Java",
+          "order": 1,
+          "questions": [
+            {
+              "id": "java_junior_001",
+              "topic": "Сравнение строк",
+              "codeLanguage": "java",
+              "codeSnippet": "public class Main {\n    public static void main(String[] args) {\n        String a = new String(\"hello\");\n        String b = new String(\"hello\");\n        System.out.println(a == b);\n        System.out.println(a.equals(b));\n    }\n}",
+              "text": "Что выведет программа?",
+              "options": ["true\ntrue", "false\ntrue", "false\nfalse", "true\nfalse"],
+              "correctIndexes": [1],
+              "explanation": "== сравнивает ссылки на объекты. new String(\"hello\") создаёт два разных объекта в heap, поэтому a == b — false. equals() сравнивает содержимое строк — оба \"hello\", поэтому true. Строковые литералы помещаются в пул и могут быть одним объектом, но new String(...) всегда создаёт новый объект."
+            },
+            {
+              "id": "java_junior_002",
+              "topic": "Автоупаковка и кэш Integer",
+              "codeLanguage": "java",
+              "codeSnippet": "public class Main {\n    public static void main(String[] args) {\n        Integer a = 127;\n        Integer b = 127;\n        Integer c = 128;\n        Integer d = 128;\n        System.out.println(a == b);\n        System.out.println(c == d);\n    }\n}",
+              "text": "Что выведет программа?",
+              "options": ["true\ntrue", "true\nfalse", "false\nfalse", "false\ntrue"],
+              "correctIndexes": [1],
+              "explanation": "JVM кэширует объекты Integer от -128 до 127. Автоупаковка использует Integer.valueOf(), который возвращает кэшированный экземпляр для 127 — a == b (true). Значение 128 выходит за границу кэша: создаются два разных объекта — c == d (false). Для сравнения Integer-значений всегда используйте equals()."
+            },
+            {
+              "id": "java_junior_003",
+              "topic": "NullPointerException",
+              "codeLanguage": "java",
+              "codeSnippet": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        List<String> list = new ArrayList<>();\n        list.add(\"a\");\n        list.add(null);\n        list.add(\"b\");\n        for (String s : list) {\n            if (s.length() > 0) {\n                System.out.println(s);\n            }\n        }\n    }\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["Выведет: a\nb", "NullPointerException при вызове s.length() на null", "Выведет: a\nnull\nb", "Ошибка компиляции"],
+              "correctIndexes": [1],
+              "explanation": "Список содержит null-элемент. При итерации s становится null, и вызов s.length() бросает NullPointerException — нельзя вызвать метод на null-ссылке. Исправление: if (s != null && s.length() > 0). В Java 8+: list.stream().filter(Objects::nonNull)."
+            },
+            {
+              "id": "java_junior_004",
+              "topic": "Итерация и коллекции",
+              "codeLanguage": "java",
+              "codeSnippet": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        List<Integer> list = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5));\n        for (Integer i : list) {\n            if (i % 2 == 0) {\n                list.remove(i);\n            }\n        }\n        System.out.println(list);\n    }\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["[1, 3, 5]", "ConcurrentModificationException", "[1, 2, 3, 4, 5]", "[2, 4]"],
+              "correctIndexes": [1],
+              "explanation": "Изменение ArrayList во время итерации for-each бросает ConcurrentModificationException — итератор отслеживает modCount коллекции. Исправление: Iterator с iter.remove(), или list.removeIf(i -> i % 2 == 0)."
+            },
+            {
+              "id": "java_junior_005",
+              "topic": "Автоупаковка и null",
+              "codeLanguage": "java",
+              "codeSnippet": "public class Main {\n    public static void main(String[] args) {\n        Integer x = null;\n        int y = x;\n        System.out.println(y);\n    }\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["Выведет: 0", "Выведет: null", "NullPointerException", "Ошибка компиляции"],
+              "correctIndexes": [2],
+              "explanation": "Присвоение Integer → int автоматически вызывает x.intValue() (распаковка). Если x == null, x.intValue() бросает NullPointerException. Частая ловушка при Map.get() — значение может быть null, а код неявно пытается его распаковать."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "Многопоточность, дженерики, Stream API",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "JVM internals, concurrent collections, performance",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "cpp",
+      "title": "C++",
+      "description": "Чтение кода: ошибки, вывод, проблемы",
+      "order": 7,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки C++",
+          "order": 1,
+          "questions": [
+            {
+              "id": "cpp_junior_001",
+              "topic": "Висячие ссылки",
+              "codeLanguage": "cpp",
+              "codeSnippet": "#include <iostream>\n#include <string>\n\nconst std::string& getRef() {\n    std::string local = \"hello\";\n    return local;\n}\n\nint main() {\n    const std::string& ref = getRef();\n    std::cout << ref << std::endl;\n    return 0;\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["Выведет: hello", "Undefined behaviour: ссылка на уничтоженный объект", "Ошибка компиляции", "Выведет пустую строку"],
+              "correctIndexes": [1],
+              "explanation": "local — локальная переменная, уничтожается при выходе из getRef(). Возвращается dangling reference. Обращение к ref — undefined behaviour. Компилятор предупреждает об этом (-Wall). Исправление: вернуть std::string по значению, а не по ссылке."
+            },
+            {
+              "id": "cpp_junior_002",
+              "topic": "Целочисленное переполнение",
+              "codeLanguage": "cpp",
+              "codeSnippet": "#include <iostream>\n#include <climits>\n\nint main() {\n    int x = INT_MAX;\n    x++;\n    std::cout << x << std::endl;\n    return 0;\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["Выведет INT_MAX + 1 как long long", "Ошибка компиляции", "Undefined behaviour: переполнение знакового int", "Выведет: 0"],
+              "correctIndexes": [2],
+              "explanation": "Переполнение signed int — undefined behaviour по стандарту C++. Компилятор вправе оптимизировать код, предполагая что UB не возникает. На практике x86 обычно даёт wrap to INT_MIN, но это не гарантировано. Для unsigned int переполнение строго определено (wrap to 0)."
+            },
+            {
+              "id": "cpp_junior_003",
+              "topic": "Неинициализированные переменные",
+              "codeLanguage": "cpp",
+              "codeSnippet": "#include <iostream>\n\nint main() {\n    int x;\n    if (x > 0) {\n        std::cout << \"positive\" << std::endl;\n    } else {\n        std::cout << \"non-positive\" << std::endl;\n    }\n    return 0;\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["Всегда выведет: positive", "Всегда выведет: non-positive", "Undefined behaviour: x не инициализирована", "Ошибка компиляции"],
+              "correctIndexes": [2],
+              "explanation": "Локальная переменная int x; без инициализатора содержит мусор (indeterminate value). Чтение x до присвоения — undefined behaviour. Компилятор предупреждает (-Wuninitialized). Всегда инициализируйте переменные: int x = 0;."
+            },
+            {
+              "id": "cpp_junior_004",
+              "topic": "Управление памятью",
+              "codeLanguage": "cpp",
+              "codeSnippet": "#include <iostream>\n\nint main() {\n    int* p = new int(42);\n    std::cout << *p << std::endl;\n    delete p;\n    std::cout << *p << std::endl;\n    return 0;\n}",
+              "text": "Что произойдёт при выполнении?",
+              "options": ["Выведет: 42\n42", "Выведет: 42\n0", "Undefined behaviour: разыменование освобождённого указателя", "Ошибка компиляции"],
+              "correctIndexes": [2],
+              "explanation": "После delete p память освобождена. Разыменование *p — use-after-free — undefined behaviour. На практике может вывести «старое» значение, мусор или упасть. ASan (AddressSanitizer) обнаруживает такие ошибки. Исправление: p = nullptr после delete, или std::unique_ptr."
+            },
+            {
+              "id": "cpp_junior_005",
+              "topic": "Range-for и копирование",
+              "codeLanguage": "cpp",
+              "codeSnippet": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> v = {1, 2, 3};\n    for (auto x : v) {\n        x *= 2;\n    }\n    for (int val : v) {\n        std::cout << val << \" \";\n    }\n    return 0;\n}",
+              "text": "Что выведет программа?",
+              "options": ["2 4 6", "1 2 3", "Undefined behaviour", "0 0 0"],
+              "correctIndexes": [1],
+              "explanation": "auto x создаёт копию каждого элемента. Изменение x не затрагивает вектор. Чтобы менять элементы через range-for, нужна ссылка: for (auto& x : v)."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "Шаблоны, move-семантика, конкурентность",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "Оптимизации компилятора, UB, ABI",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "javascript",
+      "title": "JavaScript",
+      "description": "Чтение кода: ошибки, вывод, проблемы",
+      "order": 8,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки JavaScript",
+          "order": 1,
+          "questions": [
+            {
+              "id": "javascript_junior_001",
+              "topic": "var и замыкания",
+              "codeLanguage": "javascript",
+              "codeSnippet": "for (var i = 0; i < 3; i++) {\n    setTimeout(() => console.log(i), 0);\n}",
+              "text": "Что выведет программа?",
+              "options": ["0\n1\n2", "3\n3\n3", "undefined\nundefined\nundefined", "Ошибка: Cannot access 'i' before initialization"],
+              "correctIndexes": [1],
+              "explanation": "var имеет функциональную область видимости и поднимается (hoisting). Все три стрелочные функции замыкаются на одну переменную i. К моменту выполнения колбэков цикл уже завершён и i == 3. Исправление: заменить var на let — каждая итерация получает собственную переменную."
+            },
+            {
+              "id": "javascript_junior_002",
+              "topic": "Сравнение и приведение типов",
+              "codeLanguage": "javascript",
+              "codeSnippet": "console.log(0 == false);\nconsole.log(0 === false);\nconsole.log(\"\" == false);\nconsole.log(null == undefined);",
+              "text": "Что выведет программа?",
+              "options": ["true\ntrue\ntrue\ntrue", "true\nfalse\ntrue\ntrue", "false\nfalse\nfalse\ntrue", "true\nfalse\ntrue\nfalse"],
+              "correctIndexes": [1],
+              "explanation": "== выполняет приведение типов: 0 == false → 0 == 0 → true; \"\" == false → 0 == 0 → true; null == undefined — специальный случай спецификации → true. === не делает приведений: 0 === false — разные типы → false. Всегда предпочитайте === для предсказуемого сравнения."
+            },
+            {
+              "id": "javascript_junior_003",
+              "topic": "Всплытие (hoisting)",
+              "codeLanguage": "javascript",
+              "codeSnippet": "console.log(typeof foo);\nconsole.log(typeof bar);\n\nvar foo = 1;\nfunction bar() {}",
+              "text": "Что выведет программа?",
+              "options": ["undefined\nundefined", "undefined\nfunction", "Ошибка: foo is not defined", "number\nfunction"],
+              "correctIndexes": [1],
+              "explanation": "var foo поднимается как объявление без инициализации — до присвоения foo === undefined. Объявление функции полностью поднимается — bar доступна как function ещё до строки определения. typeof никогда не бросает ошибку, даже для необъявленных переменных."
+            },
+            {
+              "id": "javascript_junior_004",
+              "topic": "NaN",
+              "codeLanguage": "javascript",
+              "codeSnippet": "console.log(typeof NaN);\nconsole.log(NaN === NaN);\nconsole.log(isNaN(\"hello\"));",
+              "text": "Что выведет программа?",
+              "options": ["number\nfalse\ntrue", "NaN\nfalse\ntrue", "number\ntrue\ntrue", "undefined\nfalse\nfalse"],
+              "correctIndexes": [0],
+              "explanation": "typeof NaN — \"number\": NaN относится к числовому типу по IEEE 754. NaN === NaN — false: NaN единственное значение, не равное самому себе (используйте Number.isNaN() для проверки). isNaN(\"hello\") — true: функция сначала приводит аргумент к числу (Number(\"hello\") = NaN), затем проверяет."
+            },
+            {
+              "id": "javascript_junior_005",
+              "topic": "Приведение типов",
+              "codeLanguage": "javascript",
+              "codeSnippet": "console.log([] + []);\nconsole.log([] + {});\nconsole.log({} + []);",
+              "text": "Что выведет программа (все три строки внутри console.log)?",
+              "options": ["(пустая строка)\n[object Object]\n[object Object]", "0\n[object Object]\n0", "[]\n[object Object]\n{}", "TypeError на каждом выражении"],
+              "correctIndexes": [0],
+              "explanation": "[] → \"\"; {} → \"[object Object]\". [] + [] = \"\" + \"\" = \"\" (пустая строка). [] + {} = \"\" + \"[object Object]\" = \"[object Object]\". {} + [] внутри console.log — контекст выражения, {} — объект (не пустой блок): \"[object Object]\" + \"\" = \"[object Object]\"."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "Промисы, event loop, прототипы",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "Движок V8, оптимизации, безопасность",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "sql",
+      "title": "SQL",
+      "description": "Чтение кода: ошибки, вывод, проблемы",
+      "order": 9,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки SQL",
+          "order": 1,
+          "questions": [
+            {
+              "id": "sql_junior_001",
+              "topic": "NULL в условиях",
+              "codeLanguage": "sql",
+              "codeSnippet": "SELECT name\nFROM employees\nWHERE department_id != 5;",
+              "text": "Таблица employees содержит строки с department_id: 1, 3, 5 и NULL. Какие строки вернёт запрос?",
+              "options": ["Все строки, кроме тех, у кого department_id = 5 (включая NULL)", "Только строки с department_id = 1 и 3 (строка с NULL исключена)", "Пустой результат", "Ошибка: NULL нельзя сравнивать с числом"],
+              "correctIndexes": [1],
+              "explanation": "NULL != 5 вычисляется в NULL (не TRUE), поэтому WHERE отфильтрует строку с NULL. Любое сравнение с NULL через = или != возвращает NULL, а не true/false. Для проверки на NULL используйте IS NULL или IS NOT NULL."
+            },
+            {
+              "id": "sql_junior_002",
+              "topic": "GROUP BY и агрегаты",
+              "codeLanguage": "sql",
+              "codeSnippet": "SELECT department, name, COUNT(*) AS cnt\nFROM employees\nGROUP BY department;",
+              "text": "В чём ошибка в этом SQL-запросе?",
+              "options": ["COUNT(*) нельзя использовать вместе с GROUP BY", "Столбец name не включён в GROUP BY и не является агрегатной функцией", "Нужен HAVING вместо WHERE", "Ошибок нет"],
+              "correctIndexes": [1],
+              "explanation": "По стандарту SQL каждый столбец в SELECT (кроме агрегатных функций) должен быть в GROUP BY. Столбец name не входит — СУБД не знает, какое значение вернуть для группы. Исправления: добавить name в GROUP BY, убрать из SELECT, или применить агрегат: MAX(name)."
+            },
+            {
+              "id": "sql_junior_003",
+              "topic": "NULL в подзапросах",
+              "codeLanguage": "sql",
+              "codeSnippet": "SELECT name\nFROM employees\nWHERE department_id NOT IN (\n    SELECT id\n    FROM departments\n    WHERE active = false\n);",
+              "text": "Подзапрос возвращает значения: 2, 5 и NULL. Что вернёт внешний запрос?",
+              "options": ["Сотрудников с department_id, не равным 2 и 5 (NULL игнорируется)", "Пустой результат", "Всех сотрудников", "Только строки с department_id IS NULL"],
+              "correctIndexes": [1],
+              "explanation": "NOT IN с подзапросом, содержащим NULL, возвращает пустой результат. x NOT IN (2, 5, NULL) раскрывается в x != 2 AND x != 5 AND x != NULL. Последнее всегда NULL (не TRUE), поэтому ни одна строка не проходит. Исправление: WHERE id IS NOT NULL в подзапросе, или NOT EXISTS."
+            },
+            {
+              "id": "sql_junior_004",
+              "topic": "JOIN и дублирование строк",
+              "codeLanguage": "sql",
+              "codeSnippet": "SELECT o.id\nFROM orders o\nJOIN order_items i ON o.id = i.order_id;",
+              "text": "Таблица orders: id = {1, 2, 3}. Таблица order_items: order_id = {1, 1, 2}. Сколько строк вернёт запрос?",
+              "options": ["2 строки (orders 1 и 2)", "3 строки: o.id=1 дважды и o.id=2 один раз", "3 строки: по одной для orders 1, 2, 3", "1 строка"],
+              "correctIndexes": [1],
+              "explanation": "INNER JOIN умножает строки: для order 1 есть 2 совпадения → 2 строки. Order 2 — 1 совпадение → 1 строка. Order 3 не имеет позиций — не попадает в INNER JOIN. Итого 3 строки. Для уникальных заказов используйте SELECT DISTINCT o.id или EXISTS."
+            },
+            {
+              "id": "sql_junior_005",
+              "topic": "WHERE и агрегатные функции",
+              "codeLanguage": "sql",
+              "codeSnippet": "SELECT department, AVG(salary) AS avg_sal\nFROM employees\nWHERE AVG(salary) > 50000\nGROUP BY department;",
+              "text": "В чём ошибка в этом SQL-запросе?",
+              "options": ["AVG нельзя использовать вместе с GROUP BY", "WHERE не может содержать агрегатные функции — нужно использовать HAVING", "GROUP BY должен располагаться перед WHERE", "Ошибок нет"],
+              "correctIndexes": [1],
+              "explanation": "WHERE фильтрует строки ДО группировки и не может содержать агрегатные функции — на этапе WHERE группы ещё не сформированы. HAVING фильтрует ПОСЛЕ GROUP BY. Исправление: заменить WHERE AVG(salary) > 50000 на HAVING AVG(salary) > 50000."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "Оконные функции, CTE, планы запросов",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "Оптимизация, индексы, транзакции",
+          "order": 3,
+          "questions": []
+        }
+      ]
+    },
+    {
+      "id": "json",
+      "title": "JSON",
+      "description": "Чтение кода: синтаксис, типы, ловушки",
+      "order": 10,
+      "grades": [
+        {
+          "id": "junior",
+          "title": "Junior",
+          "description": "Базовые ловушки JSON",
+          "order": 1,
+          "questions": [
+            {
+              "id": "json_junior_001",
+              "topic": "Синтаксис JSON",
+              "codeLanguage": "json",
+              "codeSnippet": "{\n  \"name\": \"Alice\",\n  \"age\": 30,\n}",
+              "text": "Почему этот JSON-документ невалиден?",
+              "options": ["Значение age должно быть строкой, а не числом", "Хвостовая запятая после последнего поля — невалидный JSON", "Ключи должны быть без кавычек", "Документ валиден"],
+              "correctIndexes": [1],
+              "explanation": "JSON не допускает хвостовую запятую (trailing comma) после последнего элемента объекта или массива. Частая ошибка при ручном редактировании. JavaScript и JSON5 разрешают trailing comma, но стандарт RFC 8259 — нет."
+            },
+            {
+              "id": "json_junior_002",
+              "topic": "Синтаксис JSON",
+              "codeLanguage": "json",
+              "codeSnippet": "{\n  'name': 'Alice',\n  'age': 30\n}",
+              "text": "Почему этот JSON-документ невалиден?",
+              "options": ["age должен быть строкой", "Одинарные кавычки вместо двойных — невалидный JSON", "Пропущена запятая между полями", "Документ валиден"],
+              "correctIndexes": [1],
+              "explanation": "В JSON строки и ключи обязательно заключаются в двойные кавычки. Одинарные кавычки — синтаксис JavaScript/Python, но не JSON. Стандартный JSON-парсер отвергнет документ с ошибкой синтаксиса."
+            },
+            {
+              "id": "json_junior_003",
+              "topic": "Синтаксис JSON",
+              "codeLanguage": "json",
+              "codeSnippet": "{\n  \"name\": \"Alice\",\n  // возраст пользователя\n  \"age\": 30\n}",
+              "text": "Почему этот JSON-документ невалиден?",
+              "options": ["Комментарии в JSON должны начинаться с #", "JSON не поддерживает комментарии — это невалидный синтаксис", "Значения должны быть в массиве", "Документ валиден"],
+              "correctIndexes": [1],
+              "explanation": "JSON не поддерживает комментарии ни в каком виде. Это намеренное решение: JSON — формат обмена данными, а не конфига. Альтернативы: JSONC, JSON5, YAML. Для мета-информации добавьте поле \"_comment\"."
+            },
+            {
+              "id": "json_junior_004",
+              "topic": "Дублирующиеся ключи",
+              "codeLanguage": "json",
+              "codeSnippet": "{\n  \"id\": 1,\n  \"name\": \"Alice\",\n  \"id\": 2\n}",
+              "text": "Что произойдёт при парсинге этого JSON большинством стандартных библиотек?",
+              "options": ["Ошибка синтаксиса: дублирующийся ключ запрещён", "Поведение не определено стандартом; большинство парсеров возьмут последнее значение (id = 2)", "Оба значения сохраняются в массиве", "Парсер всегда берёт первое значение (id = 1)"],
+              "correctIndexes": [1],
+              "explanation": "RFC 8259 не запрещает дублирующиеся ключи, но называет поведение «непредсказуемым». Python json и JavaScript JSON.parse обычно берут последнее значение (id = 2), но это не гарантировано спецификацией. Некоторые строгие парсеры выбрасывают исключение. Дубли ключей всегда ошибка проектирования."
+            },
+            {
+              "id": "json_junior_005",
+              "topic": "Числа в JSON",
+              "codeLanguage": "json",
+              "codeSnippet": "{\n  \"price\": .99,\n  \"quantity\": 5\n}",
+              "text": "Почему этот JSON-документ невалиден?",
+              "options": ["quantity должно быть строкой", ".99 — невалидное число в JSON: число должно начинаться с цифры (правильно: 0.99)", "Ключи должны быть без кавычек", "Документ валиден"],
+              "correctIndexes": [1],
+              "explanation": "По RFC 8259 число должно начинаться с цифры или знака минуса: .99 — невалидно, правильно 0.99. Аналогично запрещены: 1. (без дробной части), +1 (знак плюс), 01 (ведущий ноль). Многие языки принимают .99 как литерал, но JSON-парсер его отвергнет."
+            }
+          ]
+        },
+        {
+          "id": "middle",
+          "title": "Middle",
+          "description": "JSON Schema, сериализация, edge cases",
+          "order": 2,
+          "questions": []
+        },
+        {
+          "id": "senior",
+          "title": "Senior",
+          "description": "Безопасность, большие числа, interop",
           "order": 3,
           "questions": []
         }

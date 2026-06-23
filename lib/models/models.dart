@@ -8,6 +8,8 @@ class Question {
     required this.correctIndexes,
     this.explanation,
     this.topic,
+    this.codeSnippet,
+    this.codeLanguage,
   });
 
   /// Ключи должны совпадать с questions.json
@@ -19,6 +21,8 @@ class Question {
             (json['correctIndexes'] as List).map((e) => e as int).toList(),
         explanation: json['explanation'] as String?,
         topic: json['topic'] as String?,
+        codeSnippet: json['codeSnippet'] as String?,
+        codeLanguage: json['codeLanguage'] as String?,
       );
   final String id;
   final String text;
@@ -28,6 +32,12 @@ class Question {
 
   /// Тематическая метка вопроса (напр. «SQL», «ООП»). Используется для метрик дашборда.
   final String? topic;
+
+  /// Фрагмент кода, отображаемый над вариантами ответа. Необязательный.
+  final String? codeSnippet;
+
+  /// Язык кода для будущей подсветки синтаксиса (напр. 'dart', 'sql'). Необязательный.
+  final String? codeLanguage;
 
   bool get isMultipleChoice => correctIndexes.length > 1;
 

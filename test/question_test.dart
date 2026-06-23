@@ -109,4 +109,37 @@ void main() {
           expect(parsed.isValid, isFalse); // парсинг прошёл, валидатор ловит
         });
   });
+
+  group('Question.fromJson — codeSnippet / codeLanguage', () {
+    Map<String, dynamic> raw() => {
+      'id': 'q1',
+      'text': 'Вопрос?',
+      'options': ['A', 'B'],
+      'correctIndexes': [0],
+    };
+
+    test('без codeSnippet и codeLanguage — поля null, вопрос валиден', () {
+      final parsed = Question.fromJson(raw());
+      expect(parsed.codeSnippet, isNull);
+      expect(parsed.codeLanguage, isNull);
+      expect(parsed.isValid, isTrue);
+    });
+
+    test('с codeSnippet — поле заполнено, вопрос по-прежнему валиден', () {
+      final m = raw()..['codeSnippet'] = 'SELECT * FROM users;';
+      final parsed = Question.fromJson(m);
+      expect(parsed.codeSnippet, 'SELECT * FROM users;');
+      expect(parsed.codeLanguage, isNull);
+      expect(parsed.isValid, isTrue);
+    });
+
+    test('с codeSnippet и codeLanguage — оба поля заполнены', () {
+      final m = raw()
+        ..['codeSnippet'] = 'int x = 42;'
+        ..['codeLanguage'] = 'dart';
+      final parsed = Question.fromJson(m);
+      expect(parsed.codeSnippet, 'int x = 42;');
+      expect(parsed.codeLanguage, 'dart');
+    });
+  });
 }

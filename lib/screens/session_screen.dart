@@ -255,6 +255,11 @@ class _SessionScreenState extends State<SessionScreen> {
             height: 1.4,
           ),
         ),
+        if (c.current.codeSnippet != null &&
+            c.current.codeSnippet!.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _codeBlock(c.current.codeSnippet!),
+        ],
         const SizedBox(height: 18),
         ...List.generate(
           c.current.options.length,
@@ -292,6 +297,28 @@ class _SessionScreenState extends State<SessionScreen> {
     if (c.answered) return _onNext;
     if (c.selected.isEmpty) return null;
     return c.submit;
+  }
+
+  Widget _codeBlock(String code) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(14),
+        child: Text(
+          code,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _optionTile(SessionController c, int i) {
