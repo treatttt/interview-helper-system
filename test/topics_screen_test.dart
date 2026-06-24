@@ -231,6 +231,91 @@ void main() {
     },
   );
 
+  // === Поиск ===============================================================
+  group('поиск по названию темы', () {
+    void stubThreeTopics() {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          _track(
+            id: 't1',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [
+                  _q('q1', topic: 'SQL'),
+                  _q('q2', topic: 'Требования'),
+                  _q('q3', topic: 'API'),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    testWidgets('ввод подстроки оставляет только совпадающие темы',
+        (tester) async {
+      stubThreeTopics();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'sq');
+      await tester.pump();
+
+      expect(find.text('SQL'), findsOneWidget);
+      expect(find.text('Требования'), findsNothing);
+      expect(find.text('API'), findsNothing);
+    });
+
+    testWidgets('поиск регистронезависим', (tester) async {
+      stubThreeTopics();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'ТРЕБОВАНИЯ');
+      await tester.pump();
+
+      expect(find.text('Требования'), findsOneWidget);
+      expect(find.text('SQL'), findsNothing);
+      expect(find.text('API'), findsNothing);
+    });
+
+    testWidgets('нет совпадений — заглушка «Ничего не найдено», нет краша',
+        (tester) async {
+      stubThreeTopics();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'xyz123');
+      await tester.pump();
+
+      expect(find.text('Ничего не найдено'), findsOneWidget);
+      expect(find.text('SQL'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('очистка поля возвращает все темы', (tester) async {
+      stubThreeTopics();
+      await pumpTopics(tester);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'sql');
+      await tester.pump();
+
+      expect(find.text('SQL'), findsOneWidget);
+      expect(find.text('Требования'), findsNothing);
+
+      await tester.tap(find.byIcon(Icons.clear));
+      await tester.pump();
+
+      expect(find.text('SQL'), findsOneWidget);
+      expect(find.text('Требования'), findsOneWidget);
+      expect(find.text('API'), findsOneWidget);
+    });
+  });
+
   // === Сброс темы ==========================================================
   testWidgets(
     'иконка сброса у частичной темы → подтверждение → сброс',
