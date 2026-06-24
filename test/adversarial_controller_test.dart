@@ -258,4 +258,90 @@ void main() {
       expect(c.result.partial, 1);
     });
   });
+
+  // ─── 0 вопросов — assert ───────────────────────────────────────────────────
+  group('конструктор — нарушение инварианта непустого списка', () {
+    test('пустой список вопросов → assert выбрасывает AssertionError', () {
+      expect(
+        () => SessionController([]),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('resume с пустым списком вопросов → assert выбрасывает AssertionError', () {
+      expect(
+        () => SessionController.resume(
+          questions: [],
+          startIndex: 0,
+          previousAnswers: [],
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+  });
+
+  // ─── 1 вопрос — граничный случай ─────────────────────────────────────────
+  group('ровно один вопрос — полный жизненный цикл', () {
+    test('1 вопрос: toggle → submit → next() = false → result корректен', () {
+      final c = SessionController([single('q')]);
+      expect(c.isLast, isTrue);
+      expect(c.total, 1);
+
+      c.toggle(0);
+      c.submit();
+      expect(c.answered, isTrue);
+
+      // next() на последнем возвращает false и не двигает индекс
+      expect(c.next(), isFalse);
+      expect(c.index, 0);
+
+      final r = c.result;
+      expect(r.correct, 1);
+      expect(r.wrong, 0);
+      expect(r.answers.length, 1);
+    });
+
+    test('1 вопрос неверный: wrong = 1, correct = 0, points = 0', () {
+      final c = SessionController([single('q')]);
+      c.toggle(1); // неверный вариант
+      c.submit();
+      final r = c.result;
+      expect(r.wrong, 1);
+      expect(r.correct, 0);
+      expect(r.points, 0);
+      expect(r.maxPoints, 1);
+    });
+  });
+
+  // ─── пустой correctIndexes в вопросе ─────────────────────────────────────
+  group('вопрос с пустым correctIndexes — submit всегда wrong', () {
+    test('empty correctIndexes → любой выбор = wrong, points не начисляются', () {
+      // В штатной работе такой вопрос отсеивает isValid в репозитории.
+      // Тест документирует поведение контроллера при обходе этой проверки.
+      final q = Question(
+        id: 'q',
+        text: 'T',
+        options: ['А', 'Б'],
+        correctIndexes: const [],
+      );
+      final c = SessionController([q]);
+      c.toggle(0);
+      c.submit();
+      expect(c.result.wrong, 1);
+      expect(c.result.correct, 0);
+      expect(c.result.points, 0);
+      expect(c.result.maxPoints, 0); // total = correctSet.length = 0
+    });
+  });
+
+  // ─── toggle с выходящим за диапазон индексом ──────────────────────────────
+  group('toggle — индекс вне диапазона options', () {
+    test('toggle(999) на 3-вариантном вопросе → нет краша, ответ wrong', () {
+      final c = SessionController([single('q')]); // correctIndexes = [0]
+      c.toggle(999); // 999 не совпадает ни с одним верным вариантом
+      expect(c.submit, returnsNormally);
+      expect(c.result.wrong, 1);
+      expect(c.result.correct, 0);
+    });
+  });
 }

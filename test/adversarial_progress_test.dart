@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/controllers/session_controller.dart';
+import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -264,5 +267,154 @@ void main() {
       await p.recordSession('t2', r({'q2'}));
       expect(p.streak, 1);
     });
+  });
+
+  // ─── topic_stats — повреждённые данные в prefs ────────────────────────────
+  group('topic_stats — повреждённые данные из prefs', () {
+    test(
+      'attempts=0 correct=5 в prefs — accuracy для этой темы = 0.0 (защита от деления на ноль)',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'topic_stats': json.encode({'SQL': {'attempts': 0, 'correct': 5}}),
+        });
+        final p = ProgressService();
+        await p.init();
+        final topics = p.weakestTopics();
+        // attempts=0 < minAttempts=1, тема не появляется в weakestTopics
+        expect(topics, isEmpty);
+        // overallAccuracy: attempts=0 → guard возвращает 0.0
+        expect(p.overallAccuracy, 0.0);
+      },
+    );
+
+    test(
+      'attempts=1 correct=5 в prefs — overallAccuracy превышает 1.0',
+      () async {
+        // FIXME: выявляет баг — _readTopicStats не клампирует correct <= attempts.
+        // TopicStat.accuracy = 5/1 = 5.0, overallAccuracy = 5.0 > 1.0.
+        SharedPreferences.setMockInitialValues({
+          'topic_stats': json.encode({'SQL': {'attempts': 1, 'correct': 5}}),
+        });
+        final p = ProgressService();
+        await p.init();
+        expect(p.overallAccuracy, greaterThan(1.0));
+      },
+    );
+
+    test('повреждённый topic_stats JSON (не Map) → graceful fallback, нет краша', () async {
+      SharedPreferences.setMockInitialValues({
+        'topic_stats': '}{NOT_VALID',
+      });
+      final p = ProgressService();
+      await p.init();
+      expect(p.overallAccuracy, 0.0);
+      expect(p.weakestTopics(), isEmpty);
+    });
+
+    test('тема с нечисловыми attempts/correct → строка игнорируется без краша', () async {
+      SharedPreferences.setMockInitialValues({
+        'topic_stats': json.encode({
+          'SQL': {'attempts': 'много', 'correct': 'все'}, // строки, не int
+        }),
+      });
+      final p = ProgressService();
+      await p.init();
+      expect(p.weakestTopics(), isEmpty);
+      expect(p.overallAccuracy, 0.0);
+    });
+  });
+
+  // ─── topic_stats — семантика перезаписи, а не накопления ─────────────────
+  group('topic_stats — перезапись результатами сессии, не накопление', () {
+    Question tq(String id, String topic) => Question(
+          id: id,
+          text: 'Q',
+          options: const ['A', 'B'],
+          correctIndexes: const [0],
+          topic: topic,
+        );
+
+    AnsweredQuestion answered(Question q, AnswerOutcome o) =>
+        AnsweredQuestion(question: q, selected: const {0}, outcome: o);
+
+    SessionResult topicResult(List<AnsweredQuestion> answers) {
+      final correctIds =
+          answers.where((a) => a.outcome == AnswerOutcome.correct).map((a) => a.question.id).toSet();
+      return SessionResult(
+        correct: correctIds.length,
+        partial: 0,
+        wrong: answers.where((a) => a.outcome == AnswerOutcome.wrong).length,
+        points: correctIds.length,
+        maxPoints: answers.length,
+        answers: answers,
+        correctIds: correctIds,
+      );
+    }
+
+    test(
+      'две сессии по одной теме: weakestTopics отражает только вторую (перезапись)',
+      () async {
+        final p = await fresh();
+        // Первая: 1 верный из 4 → точность 25 %
+        await p.recordSession(
+          't_j',
+          topicResult([
+            answered(tq('q1', 'SQL'), AnswerOutcome.correct),
+            answered(tq('q2', 'SQL'), AnswerOutcome.wrong),
+            answered(tq('q3', 'SQL'), AnswerOutcome.wrong),
+            answered(tq('q4', 'SQL'), AnswerOutcome.wrong),
+          ]),
+        );
+        // Вторая: 2 верных из 2 → точность 100 %
+        await p.recordSession(
+          't_j',
+          topicResult([
+            answered(tq('q5', 'SQL'), AnswerOutcome.correct),
+            answered(tq('q6', 'SQL'), AnswerOutcome.correct),
+          ]),
+        );
+
+        final topics = p.weakestTopics();
+        expect(topics, hasLength(1));
+        expect(topics.single.attempts, 2); // только вторая сессия, не 4+2=6
+        expect(topics.single.correct, 2);
+      },
+    );
+
+    test(
+      'тема вне текущей сессии сохраняет свои старые значения',
+      () async {
+        final p = await fresh();
+        // Первая сессия: SQL 1/4
+        await p.recordSession(
+          't_j',
+          topicResult([
+            answered(tq('q1', 'SQL'), AnswerOutcome.correct),
+            answered(tq('q2', 'SQL'), AnswerOutcome.wrong),
+            answered(tq('q3', 'SQL'), AnswerOutcome.wrong),
+            answered(tq('q4', 'SQL'), AnswerOutcome.wrong),
+          ]),
+        );
+        // Вторая сессия: только API, SQL не трогаем
+        await p.recordSession(
+          't_j',
+          topicResult([
+            answered(tq('q5', 'API'), AnswerOutcome.correct),
+            answered(tq('q6', 'API'), AnswerOutcome.correct),
+          ]),
+        );
+
+        final topics = p.weakestTopics(limit: 10);
+        final sql = topics.firstWhere((t) => t.title == 'SQL');
+        final api = topics.firstWhere((t) => t.title == 'API');
+
+        // SQL должен остаться 1/4 — вторая сессия его не затронула
+        expect(sql.attempts, 4);
+        expect(sql.correct, 1);
+        // API — результат второй сессии
+        expect(api.attempts, 2);
+        expect(api.correct, 2);
+      },
+    );
   });
 }
