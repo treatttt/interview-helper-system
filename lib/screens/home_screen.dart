@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen>
         if (topics.isEmpty)
           _emptyTopicsHint()
         else
-          _WeakTopicsCard(topics: topics, onTopicTap: _openWeakTopic),
+          WeakTopicsCard(topics: topics, onTopicTap: _openWeakTopic),
       ],
     );
   }
@@ -348,10 +348,11 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _WeakTopicsCard extends StatelessWidget {
-  const _WeakTopicsCard({
+class WeakTopicsCard extends StatelessWidget {
+  const WeakTopicsCard({
     required this.topics,
     required this.onTopicTap,
+    super.key,
   });
   final List<TopicStat> topics;
   final void Function(String) onTopicTap;

@@ -30,6 +30,15 @@ class _TopicsScreenState extends State<TopicsScreen>
   @override
   String get loadErrorMessage => 'Не удалось загрузить темы';
 
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   // guardTap: двойной/быстрый тап по карточке темы не открывает второй экран.
   void _openTopic(String title) => guardTap(
         () => startTopicSession(
@@ -71,35 +80,65 @@ class _TopicsScreenState extends State<TopicsScreen>
       appBar: AppBar(
         title: const Text('Темы', style: TextStyle(fontWeight: FontWeight.w500)),
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-          ? ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad)
-          : ListenableBuilder(
-        listenable: widget.progress,
-        builder: (context, _) {
-          final topics = buildTopicCatalog(tracks, widget.progress);
-          if (topics.isEmpty) return _emptyView();
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            itemCount: topics.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final topic = topics[i];
-              return _TopicCard(
-                topic: topic,
-                onTap: topic.allMastered
-                    ? () => _confirmResetTopic(topic.title)
-                    : () => _openTopic(topic.title),
-                onReset: () => _confirmResetTopic(topic.title),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (error != null) {
+      return ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad);
+    }
+    return Column(
+      children: [
+        _TopicsSearchBar(
+          controller: _searchController,
+          hasText: _searchQuery.isNotEmpty,
+          onChanged: (v) => setState(() => _searchQuery = v),
+          onClear: () {
+            _searchController.clear();
+            setState(() => _searchQuery = '');
+          },
+        ),
+        Expanded(
+          child: ListenableBuilder(
+            listenable: widget.progress,
+            builder: (context, _) {
+              final topics = buildTopicCatalog(tracks, widget.progress);
+              if (topics.isEmpty) return _emptyView();
+
+              final query = _searchQuery.toLowerCase();
+              final filtered = query.isEmpty
+                  ? topics
+                  : topics
+                      .where((t) => t.title.toLowerCase().contains(query))
+                      .toList();
+
+              if (filtered.isEmpty) return _noResultsView();
+
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) {
+                  final topic = filtered[i];
+                  final onTap = topic.allMastered
+                      ? () => _confirmResetTopic(topic.title)
+                      : () => _openTopic(topic.title);
+                  return _TopicCard(
+                    topic: topic,
+                    onTap: onTap,
+                    onReset: () => _confirmResetTopic(topic.title),
+                  );
+                },
               );
             },
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -125,6 +164,70 @@ class _TopicsScreenState extends State<TopicsScreen>
               style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _noResultsView() {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 48, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            const Text(
+              'Ничего не найдено',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicsSearchBar extends StatelessWidget {
+  const _TopicsSearchBar({
+    required this.controller,
+    required this.hasText,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final bool hasText;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          hintText: 'Поиск по теме',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: hasText
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: onClear,
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: cs.outlineVariant),
+          ),
+          filled: true,
+          fillColor: cs.surfaceContainerHighest,
+          contentPadding: EdgeInsets.zero,
         ),
       ),
     );

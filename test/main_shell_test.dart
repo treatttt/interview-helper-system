@@ -153,14 +153,16 @@ void main() {
       expect(find.text('7 д.'), findsOneWidget);
     });
 
-    testWidgets('при нулевом прогрессе streak отображается как «—»', (tester) async {
+    testWidgets('при нулевом прогрессе streak и точность отображаются как «—»',
+        (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
       await tester.tap(find.text('Профиль'));
       await tester.pumpAndSettle();
 
-      expect(find.text('—'), findsOneWidget);
+      // Две строки с «—»: серия дней и общая точность (оба без данных)
+      expect(find.text('—'), findsNWidgets(2));
     });
   });
 }

@@ -1,35 +1,99 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/screens/settings_screen.dart';
+import 'package:interview_helper_system/screens/topic_session.dart';
+import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/utils/tap_lock.dart';
 
-/// Экран «Профиль»: статистика пользователя + настройки темы.
-class ProfileScreen extends StatelessWidget {
+/// Экран «Профиль»: статистика пользователя + слабые темы.
+/// Настройки (тема, сброс прогресса) — за иконкой шестерёнки.
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.progress,
     required this.themeService,
+    required this.repository,
     super.key,
   });
 
   final ProgressService progress;
   final ThemeService themeService;
+  final QuestionRepository repository;
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen>
+    with TracksLoader<ProfileScreen>, TapLock<ProfileScreen> {
+  @override
+  QuestionRepository get repository => widget.repository;
+
+  @override
+  String get loadErrorMessage => 'Не удалось загрузить темы';
+
+  void _openWeakTopic(String topicTitle) => guardTap(
+        () => startTopicSession(
+          context,
+          tracks: tracks,
+          progress: widget.progress,
+          topicTitle: topicTitle,
+        ),
+      );
+
+  void _openSettings() {
+    unawaited(
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => SettingsScreen(
+            themeService: widget.themeService,
+            progress: widget.progress,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Названия тем, у которых освоены все вопросы каталога.
+  Set<String> _fullyMasteredTopicTitles() {
+    if (tracks.isEmpty) return const {};
+    return {
+      for (final t in buildTopicCatalog(tracks, widget.progress))
+        if (t.allMastered) t.title,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Профиль', style: TextStyle(fontWeight: FontWeight.w500)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Настройки',
+            onPressed: _openSettings,
+          ),
+        ],
       ),
       body: ListenableBuilder(
-        listenable: Listenable.merge([progress, themeService]),
+        listenable: widget.progress,
         builder: (context, _) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _StatsSection(progress: progress),
+            _StatsSection(progress: widget.progress),
             const SizedBox(height: 24),
-            _ThemeSection(themeService: themeService),
+            _WeakTopicsSection(
+              progress: widget.progress,
+              masteredTitles: _fullyMasteredTopicTitles(),
+              onTopicTap: _openWeakTopic,
+            ),
           ],
         ),
       ),
@@ -46,6 +110,9 @@ class _StatsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppSemanticColors.of(context);
     final cs = Theme.of(context).colorScheme;
+    final accuracyLabel = progress.hasTrainedEver
+        ? '${(progress.overallAccuracy * 100).round()} %'
+        : '—';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,6 +163,12 @@ class _StatsSection extends StatelessWidget {
           label: 'Вопросов освоено',
           value: '${progress.totalMastered}',
         ),
+        _StatRow(
+          icon: Icons.percent,
+          iconColor: s.infoFg,
+          label: 'Общая точность',
+          value: accuracyLabel,
+        ),
       ],
     );
   }
@@ -139,21 +212,32 @@ class _StatRow extends StatelessWidget {
   }
 }
 
-class _ThemeSection extends StatelessWidget {
-  const _ThemeSection({required this.themeService});
+class _WeakTopicsSection extends StatelessWidget {
+  const _WeakTopicsSection({
+    required this.progress,
+    required this.masteredTitles,
+    required this.onTopicTap,
+  });
 
-  final ThemeService themeService;
+  final ProgressService progress;
+  final Set<String> masteredTitles;
+  final void Function(String) onTopicTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final topics = progress
+        .weakestTopics(limit: 5)
+        .where((t) => !masteredTitles.contains(t.title))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            'Тема',
+            'Слабые темы',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -161,37 +245,31 @@ class _ThemeSection extends StatelessWidget {
             ),
           ),
         ),
-        Material(
-          color: cs.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: cs.outlineVariant),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: RadioGroup<ThemeMode>(
-            groupValue: themeService.mode,
-            onChanged: (m) {
-              if (m != null) unawaited(themeService.setMode(m));
-            },
-            child: const Column(
+        if (topics.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
               children: [
-                RadioListTile<ThemeMode>(
-                  title: Text('Как в системе'),
-                  value: ThemeMode.system,
-                ),
-                RadioListTile<ThemeMode>(
-                  title: Text('Светлая'),
-                  value: ThemeMode.light,
-                ),
-                RadioListTile<ThemeMode>(
-                  title: Text('Тёмная'),
-                  value: ThemeMode.dark,
+                Icon(Icons.info_outline, size: 18, color: cs.onSurfaceVariant),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    progress.hasTrainedEver
+                        ? 'Пройди ещё несколько вопросов — слабые темы появятся здесь.'
+                        : 'Начни первую тренировку, чтобы увидеть свои слабые места.',
+                    style:
+                        TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                  ),
                 ),
               ],
             ),
-          ),
-        ),
-
+          )
+        else
+          WeakTopicsCard(topics: topics, onTopicTap: onTopicTap),
       ],
     );
   }
