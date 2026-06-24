@@ -289,6 +289,28 @@ class ProgressService extends ChangeNotifier {
 
   // ── Сбросы прогресса ──────────────────────────────────────────────────────
 
+  /// Полный сброс прогресса: XP, streak, освоенные вопросы, статистика тем,
+  /// незавершённые сессии. Флаг онбординга НЕ трогается — пользователь не
+  /// должен попасть в онбординг после сброса.
+  Future<void> resetAll() async {
+    _xp = 0;
+    _streak = 0;
+    _lastActiveDay = null;
+    _masteredIds = {};
+    _topicStats = {};
+    _incompleteSession = null;
+    _incompleteTopicSession = null;
+
+    await _prefs.remove(_kXp);
+    await _prefs.remove(_kStreak);
+    await _prefs.remove(_kLastDay);
+    await _prefs.remove(_kMasteredIds);
+    await _prefs.remove(_kTopicStats);
+    await _prefs.remove(_kIncompleteSession);
+    await _prefs.remove(_kIncompleteTopicSession);
+    notifyListeners();
+  }
+
   /// Сбросить прогресс грейда: очистить освоенные вопросы и незавершённую сессию.
   Future<void> resetGrade(String trackId, String gradeId) async {
     final key = '${trackId}_$gradeId';

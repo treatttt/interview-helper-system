@@ -343,6 +343,59 @@ void main() {
     });
   });
 
+  group('ProgressService — resetAll', () {
+    test('после сброса xp=0, streak=0, totalMastered=0, hasTrainedEver=false',
+        () async {
+      final p = await freshService();
+      await p.recordSession(
+        't1',
+        resWithAnswers([
+          answered(q('q1', topic: 'SQL'), AnswerOutcome.correct),
+          answered(q('q2', topic: 'SQL'), AnswerOutcome.wrong),
+        ]),
+      );
+      // onboarding_done устанавливаем вручную
+      await p.markOnboardingDone();
+
+      await p.resetAll();
+
+      expect(p.xp, 0);
+      expect(p.streak, 0);
+      expect(p.totalMastered, 0);
+      expect(p.hasTrainedEver, isFalse);
+      expect(p.overallAccuracy, 0.0);
+      expect(p.weakestTopics(), isEmpty);
+    });
+
+    test('resetAll не трогает флаг онбординга', () async {
+      final p = await freshService();
+      await p.markOnboardingDone();
+      await p.resetAll();
+      expect(p.onboardingDone, isTrue);
+    });
+
+    test('onboarding_done переживает resetAll в SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({});
+      final p1 = ProgressService();
+      await p1.init();
+      await p1.markOnboardingDone();
+      await p1.resetAll();
+
+      final p2 = ProgressService();
+      await p2.init();
+      expect(p2.onboardingDone, isTrue);
+      expect(p2.xp, 0);
+      expect(p2.hasTrainedEver, isFalse);
+    });
+
+    test('повторный вызов resetAll не падает', () async {
+      final p = await freshService();
+      await p.resetAll();
+      await p.resetAll(); // не должно бросить исключение
+      expect(p.xp, 0);
+    });
+  });
+
   group('ProgressService — сброс мастеринга и тема-слот паузы', () {
     test('resetMastered снимает только указанные ID, пустые грейды убирает',
         () async {

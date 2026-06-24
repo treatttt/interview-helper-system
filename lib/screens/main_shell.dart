@@ -49,6 +49,7 @@ class _MainShellState extends State<MainShell> {
           ProfileScreen(
             progress: widget.progress,
             themeService: widget.themeService,
+            repository: widget.repository,
           ),
         ],
       ),
