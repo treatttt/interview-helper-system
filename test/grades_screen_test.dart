@@ -11,7 +11,15 @@ class MockProgressService extends Mock implements ProgressService {}
 
 // --- Test data builders ----------------------------------------------------
 // ADJUST to match models.dart if more required fields appear.
-Question _question(String id) => Question(id: id, text: '', options: [], correctIndexes: []);
+Question _question(String id) => Question(
+  id: id,
+  text: 'Q $id',
+  options: const ['A', 'B'],
+  correctIndexes: const [0],
+);
+
+Question _invalidQuestion(String id) =>
+    Question(id: id, text: '', options: [], correctIndexes: []);
 
 Grade _grade({
   required String id,
@@ -61,6 +69,32 @@ void main() {
       MaterialApp(home: GradesScreen(track: track, progress: progress)),
     );
   }
+
+  // === isValid check: grade with only invalid questions treated as empty =====
+  testWidgets('grade with only invalid questions shows "Скоро" and blocks tap',
+      (tester) async {
+    final track = _track(
+      id: 't1',
+      title: 'Backend',
+      grades: [
+        _grade(
+          id: 'g1',
+          title: 'Junior',
+          questions: [_invalidQuestion('q1'), _invalidQuestion('q2')],
+        ),
+      ],
+    );
+    await pumpScreen(tester, track);
+
+    expect(find.text('Скоро'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+
+    await tester.tap(find.text('Junior'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  },);
 
   // === onTap switch: (false, _) => null =====================================
   group('grade without questions', () {

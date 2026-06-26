@@ -199,7 +199,7 @@ class _GradesScreenState extends State<GradesScreen> {
 
   Widget _gradeCard(Grade grade) {
     final cs = Theme.of(context).colorScheme;
-    final hasQuestions = grade.questions.isNotEmpty;
+    final hasQuestions = grade.questions.any((q) => q.isValid);
     final total = grade.questions.length;
     final mastered = widget.progress.masteredIds(widget.track.id, grade.id);
     final done = mastered.length;

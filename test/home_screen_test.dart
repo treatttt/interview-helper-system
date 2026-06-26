@@ -347,4 +347,66 @@ void main() {
       expect(find.text('Продолжить тренировку'), findsOneWidget);
     },
   );
+
+  // === Треки без валидных вопросов помечены «Скоро» =========================
+  testWidgets(
+    'трек без валидных вопросов показывает «Скоро» и не открывает GradesScreen',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          _track(
+            id: 'analytics',
+            title: 'Аналитика',
+            grades: [_grade(id: 'junior', title: 'Junior')],
+          ),
+        ],
+      );
+
+      await pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Аналитика'), findsOneWidget);
+      expect(find.text('Скоро'), findsOneWidget);
+
+      await tester.tap(find.text('Аналитика'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GradesScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'трек с валидными вопросами не показывает «Скоро» и открывает GradesScreen',
+    (tester) async {
+      when(() => repo.loadTracks()).thenAnswer(
+        (_) async => [
+          _track(
+            id: 'analytics',
+            title: 'Аналитика',
+            grades: [
+              _grade(
+                id: 'junior',
+                title: 'Junior',
+                questions: [_q(id: 'q1')],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Аналитика'), findsOneWidget);
+      expect(find.text('Скоро'), findsNothing);
+      expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+
+      await tester.tap(find.text('Аналитика'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GradesScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

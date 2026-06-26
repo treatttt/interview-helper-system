@@ -253,6 +253,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _trackRow(Track track) {
     final cs = Theme.of(context).colorScheme;
+    final hasAnyValid = track.grades.any(
+      (g) => g.questions.any((q) => q.isValid),
+    );
     final totalQ = track.grades.fold<int>(0, (s, g) => s + g.questions.length);
     final mastered = track.grades.fold<int>(
       0,
@@ -262,28 +265,51 @@ class _HomeScreenState extends State<HomeScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: InkWell(
-        onTap: () => guardTap(() => _pushGrades(track)),
+        onTap: hasAnyValid ? () => guardTap(() => _pushGrades(track)) : null,
         borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  track.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: cs.onSurface,
+        child: Opacity(
+          opacity: hasAnyValid ? 1.0 : 0.5,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    track.title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: cs.onSurface,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                '$mastered / $totalQ',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right, size: 16, color: cs.onSurfaceVariant),
-            ],
+                if (!hasAnyValid)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Скоро',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else ...[
+                  Text(
+                    '$mastered / $totalQ',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 16, color: cs.onSurfaceVariant),
+                ],
+              ],
+            ),
           ),
         ),
       ),
