@@ -5,10 +5,12 @@ import 'package:http/http.dart' as http;
 import 'package:interview_helper_system/dev/feedback_flag.dart';
 import 'package:interview_helper_system/dev/feedback_route_observer.dart';
 
-/// Тип обращения, выбираемый тестером.
+/// Тип обращения. `bug`/`idea` выбираются тумблером; `review` выставляется
+/// автоматически, когда основное поле пустое, а поле впечатлений — нет.
 enum FeedbackKind {
   bug('Баг'),
-  idea('Идея');
+  idea('Идея'),
+  review('Отзыв');
 
   const FeedbackKind(this.label);
 
@@ -19,12 +21,10 @@ enum FeedbackKind {
 /// с числом параметров сверх лимита метрики (литерал записи не считается
 /// объявлением функции).
 typedef FeedbackData = ({
-  String id,
-  FeedbackKind kind,
-  String screen,
-  String themeLabel,
-  String text,
-  DateTime now,
+String id,
+FeedbackKind kind,
+String screen,
+String text,
 });
 
 const _idAlphabet = '0123456789ABCDEFGHJKMNPQRSTUVWXYZ';
@@ -35,32 +35,15 @@ String generateFeedbackId([Random? random]) {
   final rnd = random ?? Random();
   final tail = List.generate(
     6,
-    (_) => _idAlphabet[rnd.nextInt(_idAlphabet.length)],
+        (_) => _idAlphabet[rnd.nextInt(_idAlphabet.length)],
   ).join();
   return 'FB-$tail';
 }
 
-/// Полный текст отчёта (catch-all поле). Чистая функция — тестируется.
-String buildFeedbackReport(FeedbackData data) {
-  final n = data.now;
-  final ts = '${_pad(n.year, 4)}-${_pad(n.month, 2)}-${_pad(n.day, 2)} '
-      '${_pad(n.hour, 2)}:${_pad(n.minute, 2)}';
-  return '[Фидбек · Тренажёр собеседований]\n'
-      'ID: ${data.id}\n'
-      'Тип: ${data.kind.label}\n'
-      'Время: $ts\n'
-      'Версия: $kFeedbackAppVersion\n'
-      'Тема: ${data.themeLabel}\n'
-      'Экран: ${data.screen}\n\n'
-      'Текст:\n${data.text.trim()}';
-}
-
-String _pad(int value, int width) => value.toString().padLeft(width, '0');
-
-/// Тело POST-запроса: catch-all текст + опциональные атомарные поля.
+/// Тело POST-запроса: текст + опциональные атомарные поля (Тип/Экран/Версия/ID).
 Map<String, String> buildFormBody(FeedbackData data) {
   final body = <String, String>{};
-  if (kEntryText.isNotEmpty) body[kEntryText] = buildFeedbackReport(data);
+  if (kEntryText.isNotEmpty) body[kEntryText] = data.text.trim();
   if (kEntryType.isNotEmpty) body[kEntryType] = data.kind.label;
   if (kEntryScreen.isNotEmpty) body[kEntryScreen] = data.screen;
   if (kEntryVersion.isNotEmpty) body[kEntryVersion] = kFeedbackAppVersion;
@@ -132,7 +115,8 @@ class _FeedbackOverlayState extends State<FeedbackOverlay> {
             onMove: (delta) => _move(delta, size),
           ),
         ),
-        if (_open) _FeedbackPanel(onClose: () => setState(() => _open = false)),
+        if (_open)
+          _FeedbackPanel(onClose: () => setState(() => _open = false)),
       ],
     );
   }
@@ -184,6 +168,7 @@ class _FeedbackPanel extends StatefulWidget {
 
 class _FeedbackPanelState extends State<_FeedbackPanel> {
   final _controller = TextEditingController();
+  final _reviewController = TextEditingController();
   final _id = generateFeedbackId();
   FeedbackKind _kind = FeedbackKind.bug;
   bool _busy = false;
@@ -191,24 +176,40 @@ class _FeedbackPanelState extends State<_FeedbackPanel> {
   @override
   void dispose() {
     _controller.dispose();
+    _reviewController.dispose();
     super.dispose();
   }
 
-  String _themeLabel() =>
-      Theme.of(context).brightness == Brightness.dark ? 'тёмная' : 'светлая';
-
   Future<void> _submit() async {
     if (_busy) return;
-    setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
-    final sent = await sendFeedbackReport((
-      id: _id,
-      kind: _kind,
-      screen: feedbackRouteObserver.currentRouteName,
-      themeLabel: _themeLabel(),
-      text: _controller.text,
-      now: DateTime.now(),
-    ));
+    final main = _controller.text.trim();
+    final review = _reviewController.text.trim();
+    final screen = feedbackRouteObserver.currentRouteName;
+
+    // Что отправляем: баг/идея и/или отзыв. Если заполнены оба — два
+    // отдельных сообщения (две строки формы, различаются колонкой «Тип»).
+    final reports = <FeedbackData>[
+      if (main.isNotEmpty)
+        (id: _id, kind: _kind, screen: screen, text: main),
+      if (review.isNotEmpty)
+        (id: _id, kind: FeedbackKind.review, screen: screen, text: review),
+    ];
+
+    if (reports.isEmpty) {
+      widget.onClose();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Напиши что-нибудь перед отправкой.')),
+      );
+      return;
+    }
+
+    setState(() => _busy = true);
+    var sent = false;
+    for (final report in reports) {
+      final ok = await sendFeedbackReport(report);
+      sent = sent || ok;
+    }
     widget.onClose();
     messenger.showSnackBar(
       SnackBar(
@@ -243,30 +244,36 @@ class _FeedbackPanelState extends State<_FeedbackPanel> {
   Widget _card(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
     return Container(
       width: double.infinity,
+      constraints: BoxConstraints(maxHeight: maxHeight),
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + inset),
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header(cs),
-          const SizedBox(height: 12),
-          _typeSelector(),
-          const SizedBox(height: 12),
-          _input(),
-          const SizedBox(height: 8),
-          Text(
-            'ID: $_id',
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          _submitButton(),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(cs),
+            const SizedBox(height: 12),
+            _typeSelector(),
+            const SizedBox(height: 12),
+            _input(),
+            const SizedBox(height: 16),
+            _reviewInput(),
+            const SizedBox(height: 8),
+            Text(
+              'ID: $_id',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            _submitButton(),
+          ],
+        ),
       ),
     );
   }
@@ -285,8 +292,7 @@ class _FeedbackPanelState extends State<_FeedbackPanel> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Опиши проблему или идею. Тип, экран, версия и тема '
-          'добавятся в отчёт автоматически.',
+          'Опиши проблему или идею — или просто оставь впечатления ниже.',
           style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
         ),
       ],
@@ -315,12 +321,26 @@ class _FeedbackPanelState extends State<_FeedbackPanel> {
   Widget _input() {
     return TextField(
       controller: _controller,
-      minLines: 3,
-      maxLines: 5,
+      minLines: 2,
+      maxLines: 4,
       autofocus: true,
       decoration: const InputDecoration(
         border: OutlineInputBorder(),
+        labelText: 'Баг или идея',
         hintText: 'Что произошло?',
+      ),
+    );
+  }
+
+  Widget _reviewInput() {
+    return TextField(
+      controller: _reviewController,
+      minLines: 2,
+      maxLines: 3,
+      decoration: const InputDecoration(
+        border: OutlineInputBorder(),
+        labelText: 'Впечатления (необязательно)',
+        hintText: 'Здесь можно поделиться впечатлениями об использовании',
       ),
     );
   }
