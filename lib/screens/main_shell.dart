@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
 import 'package:interview_helper_system/screens/practice_screen.dart';
 import 'package:interview_helper_system/screens/profile_screen.dart';
+import 'package:interview_helper_system/screens/progress_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 
 /// Корневой экран после онбординга: NavigationBar (Material 3) + IndexedStack.
 ///
-/// Вкладки: Главная (дашборд готовности) / Практика (направления и темы) / Профиль.
+/// Вкладки: Главная / Практика / Прогресс / Профиль.
 /// IndexedStack сохраняет состояние всех вкладок между переключениями.
 /// Переходы в сессию/результат/разбор открываются через Navigator.push
-/// поверх этого экрана — таб-бар при этом скрывается, что соответствует
-/// стандартному поведению Flutter Navigator.
+/// поверх этого экрана — таб-бар при этом скрывается.
 class MainShell extends StatefulWidget {
   const MainShell({
     required this.repository,
@@ -46,6 +46,10 @@ class _MainShellState extends State<MainShell> {
             repository: widget.repository,
             progress: widget.progress,
           ),
+          ProgressScreen(
+            repository: widget.repository,
+            progress: widget.progress,
+          ),
           ProfileScreen(
             progress: widget.progress,
             themeService: widget.themeService,
@@ -65,6 +69,11 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(
             icon: Icon(Icons.track_changes),
             label: 'Практика',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Прогресс',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

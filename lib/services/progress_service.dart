@@ -52,6 +52,8 @@ class ProgressService extends ChangeNotifier {
   static const _kDailyCount = 'daily_count'; // отвечено вопросов за день
   static const _kDailyCountDay = 'daily_count_day'; // день счётчика (dayKey)
   static const _kPracticeMix = 'practice_mix'; // List<questionId> активного микса
+  static const _kTotalAnswers = 'total_answers'; // накопленный счётчик всех ответов
+  static const _kDailyAccuracyLog = 'daily_accuracy_log'; // Map<date, {answers, correct}>
 
   /// Дневная цель по числу отвеченных вопросов — ориентир для карточки на
   /// Главной. На механику серии не влияет (серия растёт от любой активности).
@@ -75,11 +77,21 @@ class ProgressService extends ChangeNotifier {
   int _dailyCount = 0;
   String? _dailyCountDay;
   List<String> _practiceMix = const [];
+  int _totalAnswers = 0;
+  Map<String, ({int answers, int correct})> _dailyAccuracyLog = {};
 
   int get xp => _xp;
   int get streak => _streak;
   bool get onboardingDone => _onboardingDone;
   bool get hasTrainedEver => _lastActiveDay != null;
+
+  /// Накопленное число всех данных ответов за всё время (persist, аддитивно).
+  int get totalAnswers => _totalAnswers;
+
+  /// Лог ежедневной точности: дата (YYYY-MM-DD) → {answers, correct}.
+  /// Неизменяемая копия — мутация не затрагивает внутреннее состояние.
+  Map<String, ({int answers, int correct})> get dailyAccuracyLog =>
+      Map.unmodifiable(_dailyAccuracyLog);
 
   /// Сколько вопросов отвечено сегодня. Если последняя активность была в другой
   /// день, счётчик «протух» — возвращаем 0, не дожидаясь следующей записи.
@@ -174,6 +186,8 @@ class ProgressService extends ChangeNotifier {
     _practiceMix = _readStringList(_kPracticeMix);
     _incompleteSession = _readSlot(_kIncompleteSession);
     _incompleteTopicSession = _readSlot(_kIncompleteTopicSession);
+    _totalAnswers = _prefs.getInt(_kTotalAnswers) ?? 0;
+    _dailyAccuracyLog = _readDailyAccuracyLog();
     notifyListeners();
   }
 
@@ -215,6 +229,27 @@ class ProgressService extends ChangeNotifier {
       return result;
     } on Object catch (e) {
       debugPrint('ProgressService: повреждён $_kTopicStats, сброс — $e');
+      return {};
+    }
+  }
+
+  Map<String, ({int answers, int correct})> _readDailyAccuracyLog() {
+    final raw = _prefs.getString(_kDailyAccuracyLog);
+    if (raw == null) return {};
+    try {
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return {};
+      final result = <String, ({int answers, int correct})>{};
+      decoded.forEach((k, v) {
+        if (k is String && v is Map) {
+          final a = v['answers'];
+          final c = v['correct'];
+          if (a is int && c is int) result[k] = (answers: a, correct: c);
+        }
+      });
+      return result;
+    } on Object catch (e) {
+      debugPrint('ProgressService: повреждён $_kDailyAccuracyLog, сброс — $e');
       return {};
     }
   }
@@ -264,6 +299,11 @@ class ProgressService extends ChangeNotifier {
     }
 
     _applyTopicStats(result);
+    _bumpTotalAnswers(result.answers.length);
+    _bumpDailyAccuracyLog(
+      result.answers.length,
+      result.answers.where((a) => a.outcome == AnswerOutcome.correct).length,
+    );
 
     // Сессия завершена — грейдовый слот для этого грейда сбрасывается.
     if (clearIncomplete && _incompleteSession?['gradeKey'] == gradeKey) {
@@ -304,6 +344,11 @@ class ProgressService extends ChangeNotifier {
     _xp += gainedXp;
 
     _applyTopicStats(result);
+    _bumpTotalAnswers(result.answers.length);
+    _bumpDailyAccuracyLog(
+      result.answers.length,
+      result.answers.where((a) => a.outcome == AnswerOutcome.correct).length,
+    );
     _bumpDailyCount(result.answers.length);
     _updateStreak();
     await _save();
@@ -416,6 +461,8 @@ class ProgressService extends ChangeNotifier {
     _practiceMix = const [];
     _incompleteSession = null;
     _incompleteTopicSession = null;
+    _totalAnswers = 0;
+    _dailyAccuracyLog = {};
 
     await _prefs.remove(_kXp);
     await _prefs.remove(_kStreak);
@@ -427,6 +474,8 @@ class ProgressService extends ChangeNotifier {
     await _prefs.remove(_kPracticeMix);
     await _prefs.remove(_kIncompleteSession);
     await _prefs.remove(_kIncompleteTopicSession);
+    await _prefs.remove(_kTotalAnswers);
+    await _prefs.remove(_kDailyAccuracyLog);
     notifyListeners();
   }
 
@@ -462,6 +511,21 @@ class ProgressService extends ChangeNotifier {
     if (!changed) return;
     await _save();
     notifyListeners();
+  }
+
+  void _bumpTotalAnswers(int count) {
+    if (count <= 0) return;
+    _totalAnswers += count;
+  }
+
+  void _bumpDailyAccuracyLog(int answers, int correct) {
+    if (answers <= 0) return;
+    final dayKey = _dayKey(_clock());
+    final existing = _dailyAccuracyLog[dayKey] ?? (answers: 0, correct: 0);
+    _dailyAccuracyLog[dayKey] = (
+      answers: existing.answers + answers,
+      correct: existing.correct + correct,
+    );
   }
 
   /// Прибавить [answered] к дневному счётчику, сбросив его при смене дня.
@@ -519,5 +583,10 @@ class ProgressService extends ChangeNotifier {
     if (_dailyCountDay != null) {
       await _prefs.setString(_kDailyCountDay, _dailyCountDay!);
     }
+    await _prefs.setInt(_kTotalAnswers, _totalAnswers);
+    final logSerialized = _dailyAccuracyLog.map(
+      (k, v) => MapEntry(k, {'answers': v.answers, 'correct': v.correct}),
+    );
+    await _prefs.setString(_kDailyAccuracyLog, json.encode(logSerialized));
   }
 }

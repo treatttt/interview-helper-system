@@ -30,6 +30,8 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.infoFg,
     required this.infoBorder,
     required this.infoBg,
+    required this.progressGreen,
+    required this.mutedForeground,
   });
 
   final Color successFg;
@@ -44,6 +46,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   final Color infoFg;
   final Color infoBorder;
   final Color infoBg;
+  /// Зелёный акцент для прогресс-баров и бейджей (Figma: spring-green/37 #1F9D6B).
+  final Color progressGreen;
+  /// Третичный текст — даты, вспомогательные подписи (Figma: #9A9AA4).
+  final Color mutedForeground;
 
   /// Светлая палитра. Значения foreground тёмные (читаемы на светлом фоне),
   /// bg — светлые тинты, border — средняя насыщенность.
@@ -60,6 +66,8 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     infoFg: Color(0xFF185FA5),
     infoBorder: Color(0xFF5A95CE),
     infoBg: Color(0xFFE6F1FB),
+    progressGreen: Color(0xFF1F9D6B),
+    mutedForeground: Color(0xFF9A9AA4),
   );
 
   /// Тёмная палитра. Foreground осветлён (контраст ≥4.5:1 на тёмной поверхности),
@@ -79,6 +87,8 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     infoFg: Color(0xFF7CB6F0),
     infoBorder: Color(0xFF2E5C8A),
     infoBg: Color(0xFF14283D),
+    progressGreen: Color(0xFF3DBF8C),
+    mutedForeground: Color(0xFF6E6E78),
   );
 
   /// Безопасный доступ к семантическим цветам взамен `extension<...>()!`.
@@ -105,6 +115,8 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     Color? infoFg,
     Color? infoBorder,
     Color? infoBg,
+    Color? progressGreen,
+    Color? mutedForeground,
   }) {
     return AppSemanticColors(
       successFg: successFg ?? this.successFg,
@@ -119,6 +131,8 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       infoFg: infoFg ?? this.infoFg,
       infoBorder: infoBorder ?? this.infoBorder,
       infoBg: infoBg ?? this.infoBg,
+      progressGreen: progressGreen ?? this.progressGreen,
+      mutedForeground: mutedForeground ?? this.mutedForeground,
     );
   }
 
@@ -139,6 +153,8 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       infoFg: Color.lerp(infoFg, other.infoFg, t)!,
       infoBorder: Color.lerp(infoBorder, other.infoBorder, t)!,
       infoBg: Color.lerp(infoBg, other.infoBg, t)!,
+      progressGreen: Color.lerp(progressGreen, other.progressGreen, t)!,
+      mutedForeground: Color.lerp(mutedForeground, other.mutedForeground, t)!,
     );
   }
 }

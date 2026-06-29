@@ -52,13 +52,14 @@ Future<Widget> _buildApp({
 
 void main() {
   group('MainShell — таб-бар и переключение вкладок', () {
-    testWidgets('отображает NavigationBar с тремя вкладками', (tester) async {
+    testWidgets('отображает NavigationBar с четырьмя вкладками', (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.text('Главная'), findsWidgets);  // шапка экрана + таб-бар
       expect(find.text('Практика'), findsWidgets); // шапка экрана + таб-бар
+      expect(find.text('Прогресс'), findsOneWidget);
       expect(find.text('Профиль'), findsOneWidget);
     });
 
