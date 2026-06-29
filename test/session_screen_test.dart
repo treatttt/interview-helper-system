@@ -42,6 +42,7 @@ void main() {
 
   setUp(() {
     progress = MockProgressService();
+    when(() => progress.streak).thenReturn(0);
     when(
       () => progress.recordSession(
         any(),
@@ -65,6 +66,12 @@ void main() {
     return tester.pumpWidget(
       MaterialApp(
         theme: buildLightTheme(),
+        // Экран результата (его пушит pushReplacement) крутит бесконечную волну —
+        // гасим анимации во всех маршрутах, иначе pumpAndSettle не сходится.
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
         home: SessionScreen(
           track: _track(),
           grade: _grade(),
@@ -174,34 +181,106 @@ void main() {
     },
   );
 
-  // === Подсветка вариантов после ответа + пояснение (185-200, 236-292) ======
+  // === Окно неверного ответа: «Неверно», правильный ответ без креста ========
   testWidgets(
-    'после ответа подсвечивает все типы вариантов и показывает пояснение',
+    'неверный ответ → «Неверно», правильные варианты в рамке, чужие скрыты',
     (tester) async {
       const q = Question(
         id: 'q1',
         text: 'Мультивопрос',
         options: ['A', 'B', 'C', 'D'],
         correctIndexes: [0, 1],
-        // мультивыбор
         explanation: 'Пояснение к ответу',
       );
 
       await pumpSession(tester, questions: [q]);
 
-      // Выбор: A (верный) и C (неверный) → ветка picked до ответа.
+      // Выбор: A (верный) и C (неверный) → исход partial → «Неверно».
       await tester.tap(find.text('A'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('C'));
       await tester.pumpAndSettle();
-
       await tester.tap(find.text('Ответить'));
       await tester.pumpAndSettle();
 
-      // После ответа: A→correct, B→missed, C→wrong, D→neutral; isLast → «Завершить».
-      expect(find.text('Завершить'), findsOneWidget);
+      expect(find.text('Неверно'), findsOneWidget);
+      expect(find.text('Верно'), findsNothing);
+      expect(find.text('+10 XP'), findsNothing);
+      // Пояснение под «Почему».
+      expect(find.text('Почему'), findsOneWidget);
       expect(find.text('Пояснение к ответу'), findsOneWidget);
-      expect(find.text('D'), findsOneWidget);
+      // В рамке только правильные ответы (A, B); чужие варианты не показываются.
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('B'), findsOneWidget);
+      expect(find.text('C'), findsNothing);
+      expect(find.text('D'), findsNothing);
+      // Крест (✗) — только в бейдже «Неверно»; в рамках правильных ответов
+      // стоят галочки (по одной на каждый верный вариант), без крестов.
+      expect(find.byIcon(Icons.cancel), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsNWidgets(2));
+    },
+  );
+
+  // === Окно верного ответа: «Верно» + «+10 XP» + «Важно знать» ==============
+  testWidgets(
+    'верный ответ → «Верно», «+10 XP» и блок «Важно знать» из данных',
+    (tester) async {
+      const q = Question(
+        id: 'q1',
+        text: 'Вопрос',
+        options: ['A', 'B'],
+        correctIndexes: [0],
+        explanation: 'Потому что A',
+        importantToKnow: ['Смежный факт 1', 'Смежный факт 2'],
+        mustRepeat: ['Это не должно показаться'],
+      );
+
+      await pumpSession(tester, questions: [q]);
+
+      await tester.tap(find.text('A'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ответить'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Верно'), findsOneWidget);
+      expect(find.text('+10 XP'), findsOneWidget);
+      expect(find.text('Неверно'), findsNothing);
+      // Блок «Важно знать» из данных вопроса (не хардкод).
+      expect(find.text('Важно знать'), findsOneWidget);
+      expect(find.text('Смежный факт 1'), findsOneWidget);
+      expect(find.text('Смежный факт 2'), findsOneWidget);
+      // «Нужно повторить» не показывается при верном ответе.
+      expect(find.text('Нужно повторить'), findsNothing);
+      expect(find.text('Это не должно показаться'), findsNothing);
+    },
+  );
+
+  // === Неверный ответ показывает «Нужно повторить» из данных ================
+  testWidgets(
+    'неверный ответ → блок «Нужно повторить» из данных вопроса',
+    (tester) async {
+      const q = Question(
+        id: 'q1',
+        text: 'Вопрос',
+        options: ['A', 'B'],
+        correctIndexes: [0],
+        importantToKnow: ['Это не должно показаться'],
+        mustRepeat: ['Повтори тему X', 'Повтори тему Y'],
+      );
+
+      await pumpSession(tester, questions: [q]);
+
+      // Выбираем неверный B.
+      await tester.tap(find.text('B'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ответить'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Неверно'), findsOneWidget);
+      expect(find.text('Нужно повторить'), findsOneWidget);
+      expect(find.text('Повтори тему X'), findsOneWidget);
+      expect(find.text('Повтори тему Y'), findsOneWidget);
+      expect(find.text('Важно знать'), findsNothing);
     },
   );
 }

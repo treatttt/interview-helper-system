@@ -51,7 +51,10 @@ void main() {
     when(() => progress.hasTrainedEver).thenReturn(false);
     when(() => progress.streak).thenReturn(0);
     when(() => progress.totalMastered).thenReturn(0);
+    when(() => progress.answeredToday).thenReturn(0);
     when(() => progress.masteredIds(any(), any())).thenReturn(<String>{});
+    when(() => progress.incompleteSession).thenReturn(null);
+    when(() => progress.incompleteTopicSession).thenReturn(null);
     when(() => progress.loadIncompleteSession(any())).thenReturn(null);
     when(() => progress.loadIncompleteTopicSession(any())).thenReturn(null);
     when(
@@ -66,12 +69,31 @@ void main() {
     return tester.pumpWidget(
       MaterialApp(
         theme: buildLightTheme(),
-        home: HomeScreen(repository: repo, progress: progress),
+        home: HomeScreen(
+          repository: repo,
+          progress: progress,
+          // Детерминированная дата для шапки.
+          clock: () => DateTime(2026, 6, 29),
+        ),
       ),
     );
   }
 
-  // === Ошибка + повтор (строки 364-369) ====================================
+  // === Шапка ================================================================
+  testWidgets('шапка показывает дату, заголовок «Главная» и серию',
+      (tester) async {
+    when(() => progress.streak).thenReturn(3);
+    when(() => repo.loadTracks()).thenAnswer((_) async => <Track>[]);
+
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Главная'), findsOneWidget);
+    expect(find.text('ПОНЕДЕЛЬНИК, 29 ИЮНЯ'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget); // значок серии
+  });
+
+  // === Ошибка + повтор ======================================================
   testWidgets(
     'ошибка загрузки → экран ошибки; «Попробовать снова» грузит заново',
     (tester) async {
@@ -94,103 +116,17 @@ void main() {
     },
   );
 
-  // === Карточка слабых тем (строки 435-500) + дрилл по теме (96-141) ========
-  testWidgets('карточка слабых тем рендерится; тап по теме открывает дрилл',
-    (tester) async {
-      when(
-        () => progress.weakestTopics(
-          limit: any(named: 'limit'),
-          minAttempts: any(named: 'minAttempts'),
-        ),
-      ).thenReturn(const [TopicStat(title: 'SQL', attempts: 4, correct: 1)]);
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(
-            id: 't1',
-            title: 'Аналитика',
-            grades: [
-              _grade(
-                id: 'g1',
-                title: 'Junior',
-                questions: [
-                  _q(id: 'q1', topic: 'SQL'),
-                  _q(id: 'q2', topic: 'ООП'),
-                ],
-              ),
-            ],
-          ),
-        ],
-      );
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('SQL'), findsOneWidget);
-      expect(find.text('25%'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-
-      await tester.tap(find.text('SQL'));
-      await tester.pumpAndSettle();
-
-      // Непройденный вопрос темы есть → стартует тема-дрилл (SessionScreen).
-      expect(find.byType(SessionScreen), findsOneWidget);
-    },
-  );
-
-  // === Полностью освоенная тема скрыта из слабых тем (фильтр) ===============
-  testWidgets(
-    'полностью освоенная тема не попадает в слабые темы',
-    (tester) async {
-      when(
-        () => progress.weakestTopics(
-          limit: any(named: 'limit'),
-          minAttempts: any(named: 'minAttempts'),
-        ),
-      ).thenReturn(const [TopicStat(title: 'SQL', attempts: 4, correct: 1)]);
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(
-            id: 't1',
-            title: 'Аналитика',
-            grades: [
-              _grade(
-                id: 'g1',
-                title: 'Junior',
-                questions: [_q(id: 'q1', topic: 'SQL')],
-              ),
-            ],
-          ),
-        ],
-      );
-      // Единственный вопрос темы освоен → тема пройдена насквозь.
-      when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      // Тема статистически слабая (25%), но полностью освоена → скрыта,
-      // тыкать в дрилле нечего. Строки с ней в блоке слабых тем нет.
-      expect(find.text('SQL'), findsNothing);
-      expect(find.byType(SessionScreen), findsNothing);
-    },
-  );
-
-  // === CTA: слабая тема → грейд (строки 54-71, 143-151) =====================
-  testWidgets('CTA по слабой теме открывает GradesScreen', (tester) async {
-    when(
-      () => progress.weakestTopics(
-        limit: any(named: 'limit'),
-        minAttempts: any(named: 'minAttempts'),
-      ),
-    ).thenReturn(const [TopicStat(title: 'SQL', attempts: 4, correct: 1)]);
+  // === Карточка «Начать»: свежий старт рекомендованной сессии ===============
+  testWidgets('карточка «Начать» запускает SessionScreen для рекомендации',
+      (tester) async {
     when(() => repo.loadTracks()).thenAnswer(
       (_) async => [
         _track(
-          id: 't1',
+          id: 'analytics',
           title: 'Аналитика',
           grades: [
             _grade(
-              id: 'g1',
+              id: 'junior',
               title: 'Junior',
               questions: [_q(id: 'q1', topic: 'SQL')],
             ),
@@ -202,211 +138,174 @@ void main() {
     await pumpHome(tester);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Начать тренировку'));
+    // Заголовок карточки — тема первого непройденного вопроса.
+    expect(find.text('SQL'), findsOneWidget);
+    expect(find.text('Аналитика · Junior'), findsOneWidget);
+    expect(find.text('Вопрос 0 / 1'), findsOneWidget);
+
+    await tester.tap(find.text('Начать'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionScreen), findsOneWidget);
+  });
+
+  // === Карточка «Продолжить»: резюм грейдовой паузы =========================
+  testWidgets('карточка «Продолжить» возобновляет сохранённую сессию',
+      (tester) async {
+    when(() => repo.loadTracks()).thenAnswer(
+      (_) async => [
+        _track(
+          id: 'analytics',
+          title: 'Аналитика',
+          grades: [
+            _grade(
+              id: 'junior',
+              title: 'Junior',
+              questions: [
+                _q(id: 'q1', topic: 'SQL'),
+                _q(id: 'q2', topic: 'SQL'),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+    when(() => progress.incompleteSession).thenReturn(<String, Object?>{
+      'gradeKey': 'analytics_junior',
+      'questionIds': ['q1', 'q2'],
+      'currentIndex': 1,
+      'answeredData': [
+        {'id': 'q1', 'selected': [0], 'outcome': 'correct'},
+      ],
+    });
+
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ПРОДОЛЖИТЬ'), findsOneWidget);
+    expect(find.text('Вопрос 2 / 2'), findsOneWidget);
+
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionScreen), findsOneWidget);
+  });
+
+  // === Дневная цель =========================================================
+  testWidgets('карточка дневной цели показывает прогресс и остаток',
+      (tester) async {
+    when(() => progress.answeredToday).thenReturn(6);
+    when(() => repo.loadTracks()).thenAnswer((_) async => <Track>[]);
+
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ежедневная цель'), findsOneWidget);
+    expect(find.text('6/10'), findsOneWidget);
+    expect(find.text('Ещё 4 вопроса до цели дня'), findsOneWidget);
+  });
+
+  // === Направления: тап открывает грейды ====================================
+  testWidgets('тап по направлению открывает GradesScreen', (tester) async {
+    when(() => repo.loadTracks()).thenAnswer(
+      (_) async => [
+        _track(
+          id: 'analytics',
+          title: 'Аналитика',
+          grades: [
+            _grade(id: 'junior', title: 'Junior', questions: [_q(id: 'q1')]),
+          ],
+        ),
+      ],
+    );
+
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ВАШИ НАПРАВЛЕНИЯ'), findsOneWidget);
+    // «Аналитика» встречается дважды: в карточке и в списке направлений.
+    await tester.tap(find.text('Аналитика').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(GradesScreen), findsOneWidget);
   });
 
-  // === CTA: фолбэк на первый трек с непройденными (строки 75-84) ============
-  testWidgets('без слабых тем CTA открывает первый трек с непройденными',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(
-            id: 't1',
-            title: 'Аналитика',
-            grades: [
-              _grade(id: 'g1', title: 'Junior', questions: [_q(id: 'q1')]),
-            ],
-          ),
-        ],
-      );
+  // === Разбиение направлений: начатые → «ваши», прочие → «другие» ===========
+  testWidgets('начатые направления попадают в «ваши», прочие — в «другие»',
+      (tester) async {
+    when(() => repo.loadTracks()).thenAnswer(
+      (_) async => [
+        _track(
+          id: 'analytics',
+          title: 'Аналитика',
+          grades: [
+            _grade(id: 'junior', title: 'Junior', questions: [_q(id: 'q1')]),
+          ],
+        ),
+        _track(
+          id: 'testing',
+          title: 'Тестирование',
+          order: 1,
+          grades: [
+            _grade(id: 'junior', title: 'Junior', questions: [_q(id: 'q2')]),
+          ],
+        ),
+      ],
+    );
+    // Аналитика начата (есть освоенный вопрос), Тестирование — нет.
+    when(() => progress.masteredIds('analytics', 'junior'))
+        .thenReturn({'q1'});
 
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Начать тренировку'));
-      await tester.pumpAndSettle();
+    expect(find.text('ВАШИ НАПРАВЛЕНИЯ'), findsOneWidget);
+    expect(find.text('ДРУГИЕ НАПРАВЛЕНИЯ'), findsOneWidget);
+  });
 
-      expect(find.byType(GradesScreen), findsOneWidget);
-    },
-  );
+  // === Языковые треки скрыты =================================================
+  testWidgets('трек с category language не отображается среди направлений',
+      (tester) async {
+    when(() => repo.loadTracks()).thenAnswer(
+      (_) async => [
+        _track(
+          id: 'analytics',
+          title: 'Аналитика',
+          grades: [
+            _grade(id: 'junior', title: 'Junior', questions: [_q(id: 'q1')]),
+          ],
+        ),
+        _track(id: 'go', title: 'Go', order: 1, category: 'language'),
+      ],
+    );
 
-  // === CTA: всё освоено → открываем первый трек (строки 87-88) ==============
-  testWidgets('всё освоено → CTA всё равно открывает первый трек',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(
-            id: 't1',
-            title: 'Аналитика',
-            grades: [
-              _grade(id: 'g1', title: 'Junior', questions: [_q(id: 'q1')]),
-            ],
-          ),
-        ],
-      );
-      when(() => progress.masteredIds('t1', 'g1')).thenReturn({'q1'});
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
 
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
+    expect(find.text('Go'), findsNothing);
+  });
 
-      await tester.tap(find.text('Начать тренировку'));
-      await tester.pumpAndSettle();
+  // === Трек без валидных вопросов помечен «Скоро» и не открывает грейды ======
+  testWidgets('трек без валидных вопросов показывает «Скоро»', (tester) async {
+    when(() => repo.loadTracks()).thenAnswer(
+      (_) async => [
+        _track(
+          id: 'analytics',
+          title: 'Аналитика',
+          grades: [_grade(id: 'junior', title: 'Junior')],
+        ),
+      ],
+    );
 
-      expect(find.byType(GradesScreen), findsOneWidget);
-    },
-  );
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
 
-  // === CTA с пустым списком треков → ранний выход (строки 54-55) ============
-  testWidgets('пустой список треков → CTA ничего не открывает и не падает',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer((_) async => <Track>[]);
+    expect(find.text('Скоро'), findsOneWidget);
 
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Аналитика').last);
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Начать тренировку'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(GradesScreen), findsNothing);
-      expect(find.byType(SessionScreen), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  // === Фильтрация языковых треков в «Все направления» =======================
-  testWidgets(
-    'трек с category language не отображается в «Все направления»',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(id: 'analytics', title: 'Аналитика'),
-          _track(id: 'go', title: 'Go', category: 'language'),
-        ],
-      );
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Аналитика'), findsOneWidget);
-      expect(find.text('Go'), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'трек без category (или category != language) отображается в «Все направления»',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(id: 'analytics', title: 'Аналитика'),
-          _track(id: 'custom', title: 'Кастом', category: 'other'),
-        ],
-      );
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Аналитика'), findsOneWidget);
-      expect(find.text('Кастом'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'когда все треки языковые — секция направлений пустая, краша нет',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(id: 'go', title: 'Go', category: 'language'),
-          _track(id: 'python', title: 'Python', category: 'language'),
-        ],
-      );
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Все направления'), findsOneWidget);
-      expect(find.text('Go'), findsNothing);
-      expect(find.text('Python'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  // === Метрики при наличии истории (ветка accuracyLabel, строка 194) ========
-  testWidgets('при наличии тренировок точность показывается в процентах',
-    (tester) async {
-      when(() => progress.hasTrainedEver).thenReturn(true);
-      when(() => progress.overallAccuracy).thenReturn(0.8);
-      when(() => repo.loadTracks()).thenAnswer((_) async => <Track>[]);
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('80%'), findsOneWidget);
-      expect(find.text('Продолжить тренировку'), findsOneWidget);
-    },
-  );
-
-  // === Треки без валидных вопросов помечены «Скоро» =========================
-  testWidgets(
-    'трек без валидных вопросов показывает «Скоро» и не открывает GradesScreen',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(
-            id: 'analytics',
-            title: 'Аналитика',
-            grades: [_grade(id: 'junior', title: 'Junior')],
-          ),
-        ],
-      );
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Аналитика'), findsOneWidget);
-      expect(find.text('Скоро'), findsOneWidget);
-
-      await tester.tap(find.text('Аналитика'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(GradesScreen), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'трек с валидными вопросами не показывает «Скоро» и открывает GradesScreen',
-    (tester) async {
-      when(() => repo.loadTracks()).thenAnswer(
-        (_) async => [
-          _track(
-            id: 'analytics',
-            title: 'Аналитика',
-            grades: [
-              _grade(
-                id: 'junior',
-                title: 'Junior',
-                questions: [_q(id: 'q1')],
-              ),
-            ],
-          ),
-        ],
-      );
-
-      await pumpHome(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Аналитика'), findsOneWidget);
-      expect(find.text('Скоро'), findsNothing);
-      expect(find.byIcon(Icons.chevron_right), findsOneWidget);
-
-      await tester.tap(find.text('Аналитика'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(GradesScreen), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    expect(find.byType(GradesScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

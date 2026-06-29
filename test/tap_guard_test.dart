@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/screens/practice_topics_screen.dart';
 import 'package:interview_helper_system/screens/session_screen.dart';
-import 'package:interview_helper_system/screens/topics_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/theme.dart';
@@ -48,26 +48,32 @@ void main() {
     when(() => progress.masteredIds(any(), any())).thenReturn(<String>{});
     when(() => progress.loadIncompleteSession(any())).thenReturn(null);
     when(() => progress.loadIncompleteTopicSession(any())).thenReturn(null);
-    // Метрики «Обзора».
+    when(() => progress.incompleteSession).thenReturn(null);
+    when(() => progress.incompleteTopicSession).thenReturn(null);
+    // Метрики «Главной».
     when(() => progress.overallAccuracy).thenReturn(0);
     when(() => progress.hasTrainedEver).thenReturn(true);
     when(() => progress.streak).thenReturn(0);
     when(() => progress.totalMastered).thenReturn(0);
+    when(() => progress.answeredToday).thenReturn(0);
+    when(
+      () => progress.weakestTopics(
+        limit: any(named: 'limit'),
+        minAttempts: any(named: 'minAttempts'),
+      ),
+    ).thenReturn(const <TopicStat>[]);
   });
 
-  // === Экран «Темы»: двойной тап по карточке темы ==========================
+  // === Практика (темы трека): двойной тап по теме ==========================
   testWidgets('двойной тап по теме открывает ровно один SessionScreen',
       (tester) async {
-    when(() => repo.loadTracks()).thenAnswer(
-      (_) async => [
-        _track([_q('q1', topic: 'SQL')]),
-      ],
-    );
-
     await tester.pumpWidget(
       MaterialApp(
         theme: buildLightTheme(),
-        home: TopicsScreen(repository: repo, progress: progress),
+        home: PracticeTopicsScreen(
+          track: _track([_q('q1', topic: 'SQL')]),
+          progress: progress,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -81,16 +87,14 @@ void main() {
     expect(tester.takeException(), isNull);
   },);
 
-  // === «Обзор»: двойной тап по слабой теме =================================
-  testWidgets('двойной тап по слабой теме открывает один SessionScreen',
+  // === «Главная»: двойной тап по карточке «Начать» ========================
+  testWidgets('двойной тап по карточке «Начать» открывает один SessionScreen',
       (tester) async {
     when(() => repo.loadTracks()).thenAnswer(
       (_) async => [
         _track([_q('q1', topic: 'SQL')]),
       ],
     );
-    when(() => progress.weakestTopics())
-        .thenReturn(const [TopicStat(title: 'SQL', attempts: 2, correct: 0)]);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -100,15 +104,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('SQL'));
-    await tester.tap(find.text('SQL'));
+    // Два тапа подряд до построения сессии — лок держится на awaited-пуше.
+    await tester.tap(find.text('Начать'));
+    await tester.tap(find.text('Начать'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SessionScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   },);
 
-  // === «Обзор»: двойной тап по строке направления =========================
+  // === «Главная»: двойной тап по строке направления =======================
   testWidgets('двойной тап по направлению открывает один GradesScreen',
       (tester) async {
     when(() => repo.loadTracks()).thenAnswer(
@@ -116,8 +121,6 @@ void main() {
         _track([_q('q1', topic: 'SQL')]),
       ],
     );
-    // Слабых тем нет → в списке «Аналитика» уникальна (строка направления).
-    when(() => progress.weakestTopics()).thenReturn(const <TopicStat>[]);
 
     await tester.pumpWidget(
       MaterialApp(

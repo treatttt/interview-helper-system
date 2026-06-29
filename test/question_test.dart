@@ -142,4 +142,51 @@ void main() {
       expect(parsed.codeLanguage, 'dart');
     });
   });
+
+  group('Question.fromJson — importantToKnow / mustRepeat (из данных)', () {
+    Map<String, dynamic> raw() => {
+      'id': 'q1',
+      'text': 'Вопрос?',
+      'options': ['A', 'B'],
+      'correctIndexes': [0],
+    };
+
+    test('без полей — оба null, не падает', () {
+      final parsed = Question.fromJson(raw());
+      expect(parsed.importantToKnow, isNull);
+      expect(parsed.mustRepeat, isNull);
+    });
+
+    test('списки строк читаются как есть', () {
+      final m = raw()
+        ..['importantToKnow'] = ['Факт 1', 'Факт 2']
+        ..['mustRepeat'] = ['Повтори X'];
+      final parsed = Question.fromJson(m);
+      expect(parsed.importantToKnow, ['Факт 1', 'Факт 2']);
+      expect(parsed.mustRepeat, ['Повтори X']);
+    });
+  });
+
+  group('Question.fromJson — xpReward (награда за вопрос)', () {
+    Map<String, dynamic> raw() => {
+      'id': 'q1',
+      'text': 'Вопрос?',
+      'options': ['A', 'B'],
+      'correctIndexes': [0],
+    };
+
+    test('без поля — берётся значение по умолчанию', () {
+      expect(Question.fromJson(raw()).xpReward, Question.defaultXpReward);
+    });
+
+    test('заданное значение читается как есть (сложнее → дороже)', () {
+      final parsed = Question.fromJson(raw()..['xpReward'] = 25);
+      expect(parsed.xpReward, 25);
+    });
+
+    test('лёгкий вопрос может стоить дешевле дефолта', () {
+      final parsed = Question.fromJson(raw()..['xpReward'] = 5);
+      expect(parsed.xpReward, 5);
+    });
+  });
 }

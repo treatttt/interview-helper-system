@@ -10,6 +10,9 @@ class Question {
     this.topic,
     this.codeSnippet,
     this.codeLanguage,
+    this.importantToKnow,
+    this.mustRepeat,
+    this.xpReward = defaultXpReward,
   });
 
   /// Ключи должны совпадать с questions.json
@@ -23,7 +26,17 @@ class Question {
         topic: json['topic'] as String?,
         codeSnippet: json['codeSnippet'] as String?,
         codeLanguage: json['codeLanguage'] as String?,
+        importantToKnow:
+            (json['importantToKnow'] as List?)?.map((e) => e as String).toList(),
+        mustRepeat:
+            (json['mustRepeat'] as List?)?.map((e) => e as String).toList(),
+        xpReward: (json['xpReward'] as int?) ?? defaultXpReward,
       );
+
+  /// Награда XP за верный ответ по умолчанию, если у вопроса не задан [xpReward].
+  /// Один источник правды — менять здесь, а не россыпью по коду.
+  static const defaultXpReward = 10;
+
   final String id;
   final String text;
   final List<String> options;
@@ -33,11 +46,25 @@ class Question {
   /// Тематическая метка вопроса (напр. «SQL», «ООП»). Используется для метрик дашборда.
   final String? topic;
 
+  /// Пункты «Важно знать» — показываются на экране верного ответа (смежные
+  /// знания). Берутся из questions.json, не хардкодятся в UI. Необязательно.
+  final List<String>? importantToKnow;
+
+  /// Пункты «Нужно повторить» — показываются на экране неверного ответа.
+  /// Берутся из questions.json, не хардкодятся в UI. Необязательно.
+  final List<String>? mustRepeat;
+
   /// Фрагмент кода, отображаемый над вариантами ответа. Необязательный.
   final String? codeSnippet;
 
   /// Язык кода для будущей подсветки синтаксиса (напр. 'dart', 'sql'). Необязательный.
   final String? codeLanguage;
+
+  /// Сколько XP начисляется за верный ответ на этот вопрос. Лёгкие вопросы можно
+  /// оценить дешевле, сложные — дороже; значение берётся из questions.json
+  /// (поле `xpReward`), не хардкодится в UI/сервисе. По умолчанию
+  /// [defaultXpReward].
+  final int xpReward;
 
   bool get isMultipleChoice => correctIndexes.length > 1;
 

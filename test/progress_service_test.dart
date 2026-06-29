@@ -460,6 +460,47 @@ void main() {
       expect(p.loadIncompleteSession('t1_junior'), isNotNull);
     });
 
+    test('saveIncompleteSessionSync уведомляет слушателей (отложенно)',
+        () async {
+      // Главная живёт в IndexedStack под маршрутом сессии и перестраивается
+      // только по notifyListeners(). Sync-сейв из dispose() должен уведомить —
+      // иначе карточка «Продолжить» не появится до перезапуска приложения.
+      final p = await freshService();
+      var notified = 0;
+      p.addListener(() => notified++);
+
+      p.saveIncompleteSessionSync({
+        'gradeKey': 't1_junior',
+        'questionIds': ['q1', 'q2'],
+        'currentIndex': 1,
+        'answeredData': const <Object?>[],
+      });
+
+      // Отложено: в текущем кадре (во время dispose) ещё не уведомили.
+      expect(notified, 0);
+      await Future<void>.delayed(Duration.zero); // дренируем микротаску
+      expect(notified, 1);
+    });
+
+    test('saveIncompleteTopicSessionSync тоже уведомляет (отложенно)',
+        () async {
+      final p = await freshService();
+      var notified = 0;
+      p.addListener(() => notified++);
+
+      p.saveIncompleteTopicSessionSync({
+        'gradeKey': 't1_junior',
+        'questionIds': ['q1', 'q2'],
+        'currentIndex': 1,
+        'answeredData': const <Object?>[],
+        'topicTitle': 'SQL',
+      });
+
+      expect(notified, 0);
+      await Future<void>.delayed(Duration.zero);
+      expect(notified, 1);
+    });
+
     test('clearIncompleteTopicSession с чужой темой — no-op', () async {
       final p = await freshService();
       p.saveIncompleteTopicSessionSync({

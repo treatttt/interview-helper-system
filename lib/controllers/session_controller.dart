@@ -25,6 +25,7 @@ class SessionResult {
     required this.maxPoints,
     required this.answers,
     this.correctIds = const {},
+    this.correctXp = const {},
   });
   final int correct;
   final int partial;
@@ -36,6 +37,14 @@ class SessionResult {
   /// ID вопросов, отвеченных верно в этой сессии.
   /// Используется ProgressService для обновления множества освоенных вопросов.
   final Set<String> correctIds;
+
+  /// questionId → награда XP за верный ответ (из [Question.xpReward]) для
+  /// вопросов, отвеченных верно. Источник истины для начисления XP: и сервис
+  /// прогресса, и экран результата считают XP отсюда, а не из «×10».
+  final Map<String, int> correctXp;
+
+  /// Суммарный XP за все верные ответы этой сессии (для экрана результата).
+  int get xpEarned => correctXp.values.fold(0, (sum, xp) => sum + xp);
 }
 
 /// Управляет прохождением одной сессии вопросов.
@@ -165,5 +174,10 @@ class SessionController extends ChangeNotifier {
             .where((a) => a.outcome == AnswerOutcome.correct)
             .map((a) => a.question.id)
             .toSet(),
+        correctXp: {
+          for (final a in _answers)
+            if (a.outcome == AnswerOutcome.correct)
+              a.question.id: a.question.xpReward,
+        },
       );
 }

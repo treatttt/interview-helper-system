@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:interview_helper_system/controllers/home_controller.dart';
 import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/grades_screen.dart';
-import 'package:interview_helper_system/screens/topic_session.dart';
+import 'package:interview_helper_system/screens/session_screen.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
-import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/utils/ru_format.dart';
 import 'package:interview_helper_system/utils/tap_lock.dart';
+import 'package:interview_helper_system/utils/track_visuals.dart';
 
+/// Главная: шапка с датой и серией, карточка «Продолжить/Начать», дневная цель
+/// и список направлений («ваши» / «другие»).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.repository,
     required this.progress,
+    this.clock,
     super.key,
   });
   final QuestionRepository repository;
   final ProgressService progress;
+
+  /// Источник «сейчас» для шапки-даты. По умолчанию [DateTime.now].
+  final DateTime Function()? clock;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -29,54 +37,29 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   String get loadErrorMessage => 'Не удалось загрузить вопросы';
 
+  DateTime get _now => (widget.clock ?? DateTime.now)();
+
   // ── Navigation helpers ──────────────────────────────────────────────────
 
-  Future<void> _openRecommendedSession() async {
-    if (tracks.isEmpty) return;
-
-    final weak = widget.progress.weakestTopics(limit: 1);
-    final topicTitle = weak.isNotEmpty ? weak.first.title : null;
-
-    // 1) Слабая тема, если по ней есть непройденные вопросы.
-    final byTopic = topicTitle == null
-        ? null
-        : _firstTrackWithUnmastered((q) => q.topic == topicTitle);
-    // 2) Иначе — первый трек с любыми непройденными вопросами.
-    final target = byTopic ?? _firstTrackWithUnmastered((_) => true);
-
-    // 3) Всё освоено — открываем первый трек.
-    await _pushGrades(target ?? tracks.first);
-  }
-
-  /// Первый трек (по порядку грейдов), где есть непройденный вопрос,
-  /// удовлетворяющий [test]. Возвращает null, если такого трека нет.
-  Track? _firstTrackWithUnmastered(bool Function(Question) test) {
-    for (final track in tracks) {
-      final grades = [...track.grades]
-        ..sort((a, b) => a.order.compareTo(b.order));
-      for (final grade in grades) {
-        final mastered = widget.progress.masteredIds(track.id, grade.id);
-        final hit =
-            grade.questions.any((q) => test(q) && !mastered.contains(q.id));
-        if (hit) return track;
-      }
-    }
-    return null;
-  }
-
-  /// Тык по слабой теме → сессия по этой теме (общий хелпер с экраном «Темы»).
-  /// guardTap: повторный тап по строке не открывает второй экран.
-  void _openWeakTopic(String topicTitle) => guardTap(
-        () => startTopicSession(
-          context,
-          tracks: tracks,
-          progress: widget.progress,
-          topicTitle: topicTitle,
+  /// Запуск сессии из карточки «Продолжить/Начать». Пуш await-ится — лок
+  /// держится до закрытия сессии (защита от двойного тапа).
+  void _launch(SessionLaunch l) => guardTap(
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: 'Вопросы'),
+            builder: (_) => SessionScreen(
+              track: l.track,
+              grade: l.grade,
+              questions: l.questions,
+              progress: widget.progress,
+              initialIndex: l.startIndex,
+              previousAnswers: l.previousAnswers,
+              topicTitle: l.topicTitle,
+            ),
+          ),
         ),
       );
 
-  /// Возвращает [Future] пуша — завершается при возврате с грейдов. Это даёт
-  /// guardTap держать лок до закрытия экрана (защита от двойного пуша грейдов).
   Future<void> _pushGrades(Track track) {
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -91,282 +74,345 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Обзор', style: TextStyle(fontWeight: FontWeight.w500)),
-      ),
-      body: error != null
-          ? ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad)
-          : ListenableBuilder(
-              listenable: widget.progress,
-              builder: (context, _) => ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  _metricsRow(),
-                  const SizedBox(height: 20),
-                  _weakTopicsSection(),
-                  const SizedBox(height: 16),
-                  _ctaButton(),
-                  const SizedBox(height: 28),
-                  _tracksSectionHeader(),
-                  const SizedBox(height: 8),
-                  if (loading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else
-                    ...tracks
-                        .where((t) => t.category != 'language')
-                        .map(_trackRow),
-                ],
+      body: SafeArea(
+        child: error != null
+            ? ErrorRetryView(title: loadErrorMessage, onRetry: retryLoad)
+            : ListenableBuilder(
+                listenable: widget.progress,
+                builder: (context, _) {
+                  final controller = HomeController(
+                    tracks: tracks,
+                    progress: widget.progress,
+                  );
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                    children: _content(controller),
+                  );
+                },
               ),
-            ),
-    );
-  }
-
-  // ── Metrics row ─────────────────────────────────────────────────────────
-
-  Widget _metricsRow() {
-    final p = widget.progress;
-    final accuracyPct = (p.overallAccuracy * 100).round();
-    final accuracyLabel = p.hasTrainedEver ? '$accuracyPct%' : '—';
-
-    // IntrinsicHeight + stretch гарантируют равную высоту всех трёх карточек
-    // независимо от длины подписи или системного масштаба шрифта.
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: _MetricCard(
-              value: accuracyLabel,
-              label: 'Точность',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _MetricCard(
-              value: '${p.streak}',
-              label: 'серия',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _MetricCard(
-              value: '${p.totalMastered}',
-              label: 'освоено',
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  // ── Weak topics ─────────────────────────────────────────────────────────
+  List<Widget> _content(HomeController controller) {
+    if (loading) {
+      return [
+        _header(),
+        const SizedBox(height: 48),
+        const Center(child: CircularProgressIndicator()),
+      ];
+    }
 
-  /// Названия тем, у которых освоены все вопросы каталога.
-  Set<String> _fullyMasteredTopicTitles() {
-    if (tracks.isEmpty) return const {};
-    return {
-      for (final t in buildTopicCatalog(tracks, widget.progress))
-        if (t.allMastered) t.title,
-    };
+    final card = controller.buildContinueCard();
+    final split = controller.splitDirections();
+
+    return [
+      _header(),
+      const SizedBox(height: 20),
+      if (card != null) ...[
+        _ContinueCardView(card: card, onLaunch: () => _launch(card.launch)),
+        const SizedBox(height: 12),
+      ],
+      _DailyGoalCard(
+        answered: widget.progress.answeredToday,
+        goal: ProgressService.dailyGoal,
+      ),
+      const SizedBox(height: 24),
+      _sectionLabel('Ваши направления'),
+      const SizedBox(height: 8),
+      _directionsCard(split.yours),
+      if (split.others.isNotEmpty) ...[
+        const SizedBox(height: 20),
+        _sectionLabel('Другие направления'),
+        const SizedBox(height: 8),
+        _directionsCard(split.others),
+      ],
+    ];
   }
 
-  Widget _weakTopicsSection() {
-    // Прячем полностью проработанные темы: тыкать их в дрилле некуда
-    // (непройденных вопросов нет), и это снимает противоречие «слабая по
-    // точности, но уже пройдена по освоенности».
-    final masteredTitles = _fullyMasteredTopicTitles();
-    final topics = widget.progress
-        .weakestTopics()
-        .where((t) => !masteredTitles.contains(t.title))
-        .toList();
+  // ── Header ────────────────────────────────────────────────────────────────
 
-    return Column(
+  Widget _header() {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabel('Слабые темы'),
-        const SizedBox(height: 8),
-        if (topics.isEmpty)
-          _emptyTopicsHint()
-        else
-          WeakTopicsCard(topics: topics, onTopicTap: _openWeakTopic),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatRuDateHeader(_now),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Главная',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        _StreakBadge(streak: widget.progress.streak),
       ],
     );
   }
 
-  Widget _emptyTopicsHint() {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, size: 18, color: cs.onSurfaceVariant),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              widget.progress.hasTrainedEver
-                  ? 'Пройди ещё несколько вопросов — слабые темы появятся здесь.'
-                  : 'Начни первую тренировку, чтобы увидеть свои слабые места.',
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── Directions ──────────────────────────────────────────────────────────
 
-  // ── CTA ─────────────────────────────────────────────────────────────────
-
-  Widget _ctaButton() {
-    final label = widget.progress.hasTrainedEver
-        ? 'Продолжить тренировку'
-        : 'Начать тренировку';
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: loading ? null : () => guardTap(_openRecommendedSession),
-        child: Text(label),
-      ),
-    );
-  }
-
-  // ── Track list (secondary) ───────────────────────────────────────────────
-
-  Widget _tracksSectionHeader() {
+  Widget _sectionLabel(String text) {
     final cs = Theme.of(context).colorScheme;
     return Text(
-      'Все направления',
+      text.toUpperCase(),
       style: TextStyle(
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: FontWeight.w600,
         color: cs.onSurfaceVariant,
-        letterSpacing: 0.3,
+        letterSpacing: 0.6,
+      ),
+    );
+  }
+
+  Widget _directionsCard(List<Track> list) {
+    final cs = Theme.of(context).colorScheme;
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < list.length; i++) ...[
+            if (i > 0)
+              Divider(height: 1, thickness: 1, indent: 64, color: cs.outlineVariant),
+            _trackRow(list[i]),
+          ],
+        ],
       ),
     );
   }
 
   Widget _trackRow(Track track) {
     final cs = Theme.of(context).colorScheme;
-    final hasAnyValid = track.grades.any(
-      (g) => g.questions.any((q) => q.isValid),
-    );
-    final totalQ = track.grades.fold<int>(0, (s, g) => s + g.questions.length);
+    final visual = trackVisual(track.id, cs);
+    final hasAnyValid =
+        track.grades.any((g) => g.questions.any((q) => q.isValid));
+    final total = track.grades.fold<int>(0, (s, g) => s + g.questions.length);
     final mastered = track.grades.fold<int>(
       0,
       (s, g) => s + widget.progress.masteredIds(track.id, g.id).length,
     );
+    final fraction = total == 0 ? 0.0 : mastered / total;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: InkWell(
-        onTap: hasAnyValid ? () => guardTap(() => _pushGrades(track)) : null,
-        borderRadius: BorderRadius.circular(10),
-        child: Opacity(
-          opacity: hasAnyValid ? 1.0 : 0.5,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    track.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                ),
-                if (!hasAnyValid)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Скоро',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant,
+    return InkWell(
+      onTap: hasAnyValid ? () => guardTap(() => _pushGrades(track)) : null,
+      borderRadius: BorderRadius.circular(16),
+      child: Opacity(
+        opacity: hasAnyValid ? 1.0 : 0.55,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
+          child: Row(
+            children: [
+              _IconBadge(icon: visual.icon, color: visual.color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  )
-                else ...[
-                  Text(
-                    '$mastered / $totalQ',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                    if (hasAnyValid) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: fraction,
+                          minHeight: 4,
+                          backgroundColor: cs.surfaceContainerHighest,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (!hasAnyValid)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.chevron_right, size: 16, color: cs.onSurfaceVariant),
-                ],
-              ],
-            ),
+                  child: Text(
+                    'Скоро',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                )
+              else
+                Text(
+                  '$mastered/$total',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────
-
-  Widget _sectionLabel(String text) {
-    final cs = Theme.of(context).colorScheme;
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: cs.onSurfaceVariant,
-        letterSpacing: 0.3,
-      ),
-    );
-  }
 }
 
 // ── Reusable sub-widgets ────────────────────────────────────────────────────
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.value,
-    required this.label,
-  });
-  final String value;
-  final String label;
+class _StreakBadge extends StatelessWidget {
+  const _StreakBadge({required this.streak});
+  final int streak;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (streak <= 0) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.local_fire_department_outlined,
+          size: 20,
+          color: cs.onSurfaceVariant,
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.local_fire_department, size: 18, color: cs.primary),
+          const SizedBox(width: 4),
+          Text(
+            '$streak',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: cs.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconBadge extends StatelessWidget {
+  const _IconBadge({required this.icon, required this.color});
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, color: Colors.white, size: 22),
+    );
+  }
+}
+
+class _ContinueCardView extends StatelessWidget {
+  const _ContinueCardView({required this.card, required this.onLaunch});
+  final ContinueCard card;
+  final VoidCallback onLaunch;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              if (card.isResume)
+                Text(
+                  'ПРОДОЛЖИТЬ',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              const Spacer(),
+              Text(
+                'Вопрос ${card.questionNumber} / ${card.questionTotal}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-              height: 1.1,
+            card.title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            card.subtitle,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: card.progress,
+              minHeight: 5,
+              backgroundColor: cs.surfaceContainerHighest,
+              color: cs.primary,
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              onPressed: onLaunch,
+              child: Text(card.isResume ? 'Продолжить' : 'Начать'),
+            ),
           ),
         ],
       ),
@@ -374,104 +420,81 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class WeakTopicsCard extends StatelessWidget {
-  const WeakTopicsCard({
-    required this.topics,
-    required this.onTopicTap,
-    super.key,
-  });
-  final List<TopicStat> topics;
-  final void Function(String) onTopicTap;
+class _DailyGoalCard extends StatelessWidget {
+  const _DailyGoalCard({required this.answered, required this.goal});
+  final int answered;
+  final int goal;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final s = AppSemanticColors.of(context);
+    // Счётчик за день может перевалить за цель (ответили больше нормы) — в
+    // кольце показываем не больше «10/10», иначе «15/10» распирает кружок.
+    final shown = answered.clamp(0, goal);
+    final remaining = (goal - answered).clamp(0, goal);
+    final fraction = goal == 0 ? 0.0 : (answered / goal).clamp(0.0, 1.0);
+    final subtitle = remaining > 0
+        ? 'Ещё $remaining ${pluralQuestions(remaining)} до цели дня'
+        : 'Цель дня выполнена 🎉';
+
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cs.outlineVariant),
       ),
-      child: Column(
+      child: Row(
         children: [
-          for (int i = 0; i < topics.length; i++) ...[
-            if (i > 0)
-              Divider(height: 1, thickness: 1, color: cs.outlineVariant),
-            _TopicRow(
-              topic: topics[i],
-              warningColor: s.warningFg,
-              onTap: () => onTopicTap(topics[i].title),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicRow extends StatelessWidget {
-  const _TopicRow({
-    required this.topic,
-    required this.warningColor,
-    required this.onTap,
-  });
-  final TopicStat topic;
-  final Color warningColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final pct = (topic.accuracy * 100).round();
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          SizedBox(
+            width: 46,
+            height: 46,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Expanded(
-                  child: Text(
-                    topic.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                SizedBox(
+                  width: 46,
+                  height: 46,
+                  child: CircularProgressIndicator(
+                    value: fraction,
+                    strokeWidth: 4,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    color: cs.primary,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: FittedBox(
+                    child: Text(
+                      '$shown/$goal',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '$pct%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: warningColor,
-                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ежедневная цель',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: cs.onSurfaceVariant,
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                 ),
               ],
             ),
-            const SizedBox(height: 7),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: topic.accuracy,
-                minHeight: 4,
-                backgroundColor: cs.surfaceContainerHighest,
-                color: warningColor,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
