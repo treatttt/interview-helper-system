@@ -35,10 +35,10 @@ Future<ProgressService> _prefs(Map<String, Object> seed) async {
 void main() {
   group('HomeController.splitDirections — «ваши» и «другие»', () {
     final tracks = [
-      _track('development', [_grade('junior', [_q('d1')])], order: 0),
+      _track('development', [_grade('junior', [_q('d1')])]),
       _track('analytics', [_grade('junior', [_q('a1')])], order: 1),
       _track('english', [_grade('junior', [_q('e1')])],
-          order: 2, category: 'language'),
+          order: 2, category: 'language',),
     ];
 
     test('начатые направления уходят в «ваши», остальные в «другие»', () async {
@@ -81,7 +81,7 @@ void main() {
         Grade(id: 'g1', title: 'Junior', order: 0, questions: [
           _q('q1'),
           _q('q2'),
-        ]),
+        ],),
       ]),
     ];
 

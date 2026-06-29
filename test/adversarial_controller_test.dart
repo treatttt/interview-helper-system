@@ -318,11 +318,11 @@ void main() {
     test('empty correctIndexes → любой выбор = wrong, points не начисляются', () {
       // В штатной работе такой вопрос отсеивает isValid в репозитории.
       // Тест документирует поведение контроллера при обходе этой проверки.
-      final q = Question(
+      const q = Question(
         id: 'q',
         text: 'T',
         options: ['А', 'Б'],
-        correctIndexes: const [],
+        correctIndexes: [],
       );
       final c = SessionController([q]);
       c.toggle(0);

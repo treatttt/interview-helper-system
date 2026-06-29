@@ -5,7 +5,7 @@ void main() {
   group('formatRuDateHeader — «ДЕНЬ, N МЕСЯЦ» заглавными', () {
     test('понедельник, январь (родительный падеж)', () {
       // 2024-01-01 — понедельник.
-      expect(formatRuDateHeader(DateTime(2024, 1, 1)), 'ПОНЕДЕЛЬНИК, 1 ЯНВАРЯ');
+      expect(formatRuDateHeader(DateTime(2024)), 'ПОНЕДЕЛЬНИК, 1 ЯНВАРЯ');
     });
 
     test('воскресенье — 7-й день недели', () {

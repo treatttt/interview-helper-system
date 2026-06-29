@@ -169,7 +169,7 @@ class _FeedbackPanel extends StatefulWidget {
 class _FeedbackPanelState extends State<_FeedbackPanel> {
   final _controller = TextEditingController();
   final _reviewController = TextEditingController();
-  final _id = generateFeedbackId();
+  final String _id = generateFeedbackId();
   FeedbackKind _kind = FeedbackKind.bug;
   bool _busy = false;
 
