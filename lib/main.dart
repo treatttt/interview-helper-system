@@ -8,6 +8,7 @@ import 'package:interview_helper_system/screens/main_shell.dart';
 import 'package:interview_helper_system/screens/onboarding_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
 
@@ -17,7 +18,15 @@ void main() async {
   await progress.init();
   final themeService = ThemeService();
   await themeService.init();
-  runApp(InterviewHelperApp(progress: progress, themeService: themeService));
+  final reminderService = ReminderService();
+  await reminderService.init();
+  runApp(
+    InterviewHelperApp(
+      progress: progress,
+      themeService: themeService,
+      reminderService: reminderService,
+    ),
+  );
 }
 
 /// Оборачивает дерево оверлеем обратной связи только в тестовой сборке.
@@ -33,10 +42,12 @@ class InterviewHelperApp extends StatelessWidget {
   InterviewHelperApp({
     required this.progress,
     required this.themeService,
+    required this.reminderService,
     super.key,
   });
   final ProgressService progress;
   final ThemeService themeService;
+  final ReminderService reminderService;
   final navigatorKey = GlobalKey<NavigatorState>();
 
   @override
@@ -61,6 +72,7 @@ class InterviewHelperApp extends StatelessWidget {
           repository: repository,
           progress: progress,
           themeService: themeService,
+          reminderService: reminderService,
         )
             : OnboardingScreen(
           onFinish: () {
@@ -75,6 +87,7 @@ class InterviewHelperApp extends StatelessWidget {
                     repository: repository,
                     progress: progress,
                     themeService: themeService,
+                    reminderService: reminderService,
                   ),
                 ),
               ),

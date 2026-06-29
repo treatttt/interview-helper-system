@@ -130,8 +130,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Аналитика'));
-    await tester.tap(find.text('Аналитика'));
+    // «Аналитика» теперь и в заголовке карточки «Начать», и в строке
+    // направления — целимся в строку направления (последнее вхождение).
+    await tester.tap(find.text('Аналитика').last);
+    await tester.tap(find.text('Аналитика').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(GradesScreen), findsOneWidget);

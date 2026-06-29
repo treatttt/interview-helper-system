@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:interview_helper_system/models/models.dart';
 import 'package:interview_helper_system/screens/progress_metrics.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/theme.dart';
+import 'package:interview_helper_system/widgets/app_dialog.dart';
 
 /// Экран «Прогресс»: агрегированная статистика, динамика точности, прогресс по грейдам.
 class ProgressScreen extends StatefulWidget {
@@ -29,6 +31,17 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   @override
   String get loadErrorMessage => 'Не удалось загрузить данные';
+
+  /// Выбранная в секции «По грейдам» роль. null → берётся первый трек.
+  String? _selectedTrackId;
+
+  /// Текущий трек секции грейдов: выбранный пользователем либо первый из каталога.
+  Track get _selectedTrack {
+    for (final t in tracks) {
+      if (t.id == _selectedTrackId) return t;
+    }
+    return tracks.first;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -331,20 +344,20 @@ class _ProgressScreenState extends State<ProgressScreen>
     final cs = Theme.of(context).colorScheme;
     final sem = AppSemanticColors.of(context);
 
-    // Собираем все грейды из всех треков (сортировка по order)
+    final track = _selectedTrack;
+
+    // Только грейды выбранной роли (сортировка по order)
+    final sorted = [...track.grades]..sort((a, b) => a.order.compareTo(b.order));
     final rows = <_GradeRow>[];
-    for (final track in tracks) {
-      final sorted = [...track.grades]..sort((a, b) => a.order.compareTo(b.order));
-      for (final grade in sorted) {
-        final progress = gradeProgress(track.id, grade, p.masteredIds);
-        rows.add(
-          _GradeRow(
-            label: grade.title,
-            fraction: progress.fraction,
-            isSoon: progress.isSoon,
-          ),
-        );
-      }
+    for (final grade in sorted) {
+      final progress = gradeProgress(track.id, grade, p.masteredIds);
+      rows.add(
+        _GradeRow(
+          label: grade.title,
+          fraction: progress.fraction,
+          isSoon: progress.isSoon,
+        ),
+      );
     }
 
     return Container(
@@ -355,18 +368,60 @@ class _ProgressScreenState extends State<ProgressScreen>
       ),
       child: Column(
         children: [
+          _roleSelector(context, track, cs),
           for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: cs.surfaceContainerHighest,
-              ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.surfaceContainerHighest,
+            ),
             _gradeRow(rows[i], cs, sem),
           ],
         ],
       ),
     );
+  }
+
+  // ── Селектор роли (всплывающий список) ────────────────────────────────────
+
+  Widget _roleSelector(BuildContext context, Track track, ColorScheme cs) {
+    return InkWell(
+      onTap: () => _pickRole(context),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                track.title,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+            Icon(Icons.expand_more, size: 20, color: cs.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickRole(BuildContext context) async {
+    final picked = await showAppSelectionDialog<String>(
+      context: context,
+      title: 'Выберите роль',
+      selected: _selectedTrack.id,
+      options: [
+        for (final track in tracks)
+          AppSelectionOption(value: track.id, label: track.title),
+      ],
+    );
+    if (picked != null && picked != _selectedTrackId && mounted) {
+      setState(() => _selectedTrackId = picked);
+    }
   }
 
   Widget _gradeRow(_GradeRow row, ColorScheme cs, AppSemanticColors sem) {

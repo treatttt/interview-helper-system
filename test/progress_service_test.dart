@@ -181,7 +181,7 @@ void main() {
           answered(q('q1'), AnswerOutcome.correct), // topic == null
         ]),
       );
-      expect(p.weakestTopics(minAttempts: 1), isEmpty);
+      expect(p.weakestTopics(), isEmpty);
       expect(p.overallAccuracy, 0.0);
     });
 
@@ -418,7 +418,7 @@ void main() {
       await p.recordSession('t1_junior', res(2));
       await p.resetMastered({'t1_junior': const <String>{}}); // пустой набор
       await p.resetMastered({
-        't9_x': {'qZ'}
+        't9_x': {'qZ'},
       }); // несуществующий грейд
       expect(p.masteredIds('t1', 'junior'), {'q1', 'q2'});
     });

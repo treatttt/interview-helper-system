@@ -1,3 +1,5 @@
+import 'package:interview_helper_system/services/progress_service.dart' show ProgressService;
+
 /// Типизированное состояние незавершённой сессии.
 ///
 /// Один и тот же тип обслуживает два независимых слота в [ProgressService]:

@@ -13,39 +13,32 @@ const bool kFeedbackEnabled = bool.fromEnvironment('FEEDBACK');
 /// `--dart-define=FEEDBACK_FORM_URL=...`, иначе берётся значение по умолчанию.
 const String kFeedbackFormUrl = String.fromEnvironment(
   'FEEDBACK_FORM_URL',
-  defaultValue:
-  '',
 );
 
 /// ID поля «Отчёт» (весь текст). Обязательное — без него отправка выключена.
 /// Вставь сюда `entry.NNN` из «Получить заполненную ссылку».
 const String kEntryText = String.fromEnvironment(
   'FEEDBACK_ENTRY_TEXT',
-  defaultValue: '', // ← entry.NNN поля «Отчёт»
 );
 
 /// ID поля «Тип» (Баг/Идея). Опционально — отдельная колонка для фильтра.
 const String kEntryType = String.fromEnvironment(
   'FEEDBACK_ENTRY_TYPE',
-  defaultValue: '', // ← entry.NNN поля «Тип» (или оставь пустым)
 );
 
 /// ID поля «Экран». Опционально.
 const String kEntryScreen = String.fromEnvironment(
   'FEEDBACK_ENTRY_SCREEN',
-  defaultValue: '', // ← entry.NNN поля «Экран» (или оставь пустым)
 );
 
 /// ID поля «Версия». Опционально.
 const String kEntryVersion = String.fromEnvironment(
   'FEEDBACK_ENTRY_VERSION',
-  defaultValue: '', // ← entry.NNN поля «Версия» (или оставь пустым)
 );
 
 /// ID поля «ID отчёта» для сквозного отслеживания. Опционально.
 const String kEntryId = String.fromEnvironment(
   'FEEDBACK_ENTRY_ID',
-  defaultValue: '', // ← entry.NNN поля «ID отчёта» (или оставь пустым)
 );
 
 /// Версия приложения в отчёте. По умолчанию совпадает с pubspec.
