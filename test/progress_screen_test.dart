@@ -171,4 +171,69 @@ void main() {
       expect(find.text('Middle'), findsOneWidget);
     });
   });
+
+  group('ProgressScreen — выбор роли в секции грейдов', () {
+    Track roleOf(String id) => Track(
+          id: id,
+          title: id,
+          order: 0,
+          grades: [
+            gradeOf('Junior', [validQ('${id}_q1')]),
+            gradeOf('Middle', [validQ('${id}_q2')], order: 1),
+            gradeOf('Senior', [validQ('${id}_q3')], order: 2),
+          ],
+        );
+
+    testWidgets('по умолчанию показывает грейды первой роли', (tester) async {
+      final repo = _FakeRepo([roleOf('Аналитик'), roleOf('Разработчик')]);
+      await tester.pumpWidget(await buildApp(repo: repo));
+      await tester.pumpAndSettle();
+
+      // Селектор показывает первую роль, видны её три грейда.
+      expect(find.text('Аналитик'), findsOneWidget);
+      expect(find.text('Junior'), findsOneWidget);
+      expect(find.text('Middle'), findsOneWidget);
+      expect(find.text('Senior'), findsOneWidget);
+      // Вторая роль ещё не выбрана — её заголовка на экране нет.
+      expect(find.text('Разработчик'), findsNothing);
+    });
+
+    testWidgets('всплывающий список перечисляет все роли', (tester) async {
+      final repo = _FakeRepo([roleOf('Аналитик'), roleOf('Разработчик')]);
+      await tester.pumpWidget(await buildApp(repo: repo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Аналитик'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Выберите роль'), findsOneWidget);
+      // Обе роли присутствуют в списке.
+      expect(find.text('Разработчик'), findsOneWidget);
+    });
+
+    testWidgets('выбор другой роли переключает отображаемые грейды',
+        (tester) async {
+      final repo = _FakeRepo([
+        roleOf('Аналитик'),
+        Track(
+          id: 'Разработчик',
+          title: 'Разработчик',
+          order: 1,
+          grades: [gradeOf('Lead', [validQ('dev_q1')])],
+        ),
+      ]);
+      await tester.pumpWidget(await buildApp(repo: repo));
+      await tester.pumpAndSettle();
+
+      // Открываем список и выбираем вторую роль.
+      await tester.tap(find.text('Аналитик'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Разработчик').last);
+      await tester.pumpAndSettle();
+
+      // Теперь показан грейд второй роли, а грейды первой исчезли.
+      expect(find.text('Lead'), findsOneWidget);
+      expect(find.text('Junior'), findsNothing);
+    });
+  });
 }

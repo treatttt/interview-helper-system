@@ -138,10 +138,11 @@ void main() {
     await pumpHome(tester);
     await tester.pumpAndSettle();
 
-    // Заголовок карточки — тема первого непройденного вопроса.
-    expect(find.text('SQL'), findsOneWidget);
-    expect(find.text('Аналитика · Junior'), findsOneWidget);
+    // Заголовок карточки — направление (общий тест по курсу), а не тема.
+    expect(find.text('SQL'), findsNothing);
     expect(find.text('Вопрос 0 / 1'), findsOneWidget);
+    // Подзаголовок карточки — грейд.
+    expect(find.text('Junior'), findsOneWidget);
 
     await tester.tap(find.text('Начать'));
     await tester.pumpAndSettle();
@@ -182,7 +183,8 @@ void main() {
     await pumpHome(tester);
     await tester.pumpAndSettle();
 
-    expect(find.text('ПРОДОЛЖИТЬ'), findsOneWidget);
+    // Заголовок карточки возобновления — тема текущего вопроса.
+    expect(find.text('SQL'), findsOneWidget);
     expect(find.text('Вопрос 2 / 2'), findsOneWidget);
 
     await tester.tap(find.text('Продолжить'));

@@ -5,6 +5,7 @@ import 'package:interview_helper_system/screens/home_screen.dart';
 import 'package:interview_helper_system/screens/main_shell.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +40,9 @@ Future<Widget> _buildApp({
     await t.init();
   }
 
+  final reminders = ReminderService();
+  await reminders.init();
+
   return MaterialApp(
     theme: buildLightTheme(),
     darkTheme: buildDarkTheme(),
@@ -46,17 +50,18 @@ Future<Widget> _buildApp({
       repository: _FakeRepository(),
       progress: p,
       themeService: t,
+      reminderService: reminders,
     ),
   );
 }
 
 void main() {
   group('MainShell — таб-бар и переключение вкладок', () {
-    testWidgets('отображает NavigationBar с четырьмя вкладками', (tester) async {
+    testWidgets('отображает таб-бар с четырьмя вкладками', (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(PillBottomNav), findsOneWidget);
       expect(find.text('Главная'), findsWidgets);  // шапка экрана + таб-бар
       expect(find.text('Практика'), findsWidgets); // шапка экрана + таб-бар
       expect(find.text('Прогресс'), findsOneWidget);
@@ -78,7 +83,7 @@ void main() {
 
       await tester.tap(
         find.descendant(
-          of: find.byType(NavigationBar),
+          of: find.byType(PillBottomNav),
           matching: find.text('Практика'),
         ),
       );
@@ -116,7 +121,7 @@ void main() {
       // «Главная» также есть в шапке экрана).
       await tester.tap(
         find.descendant(
-          of: find.byType(NavigationBar),
+          of: find.byType(PillBottomNav),
           matching: find.text('Главная'),
         ),
       );

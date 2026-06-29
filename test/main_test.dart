@@ -4,6 +4,7 @@ import 'package:interview_helper_system/main.dart' as app;
 import 'package:interview_helper_system/screens/main_shell.dart';
 import 'package:interview_helper_system/screens/onboarding_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
+import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,9 +51,15 @@ void main() {
     await progress.init();
     final themeService = ThemeService();
     await themeService.init();
+    final reminderService = ReminderService();
+    await reminderService.init();
 
     await tester.pumpWidget(
-      app.InterviewHelperApp(progress: progress, themeService: themeService),
+      app.InterviewHelperApp(
+        progress: progress,
+        themeService: themeService,
+        reminderService: reminderService,
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.byType(OnboardingScreen), findsOneWidget);
