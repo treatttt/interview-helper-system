@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:interview_helper_system/screens/home_screen.dart';
 import 'package:interview_helper_system/screens/settings_screen.dart';
 import 'package:interview_helper_system/screens/topic_session.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
@@ -10,6 +9,7 @@ import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
 import 'package:interview_helper_system/utils/tap_lock.dart';
+import 'package:interview_helper_system/widgets/weak_topics_card.dart';
 
 /// Экран «Профиль»: статистика пользователя + слабые темы.
 /// Настройки (тема, сброс прогресса) — за иконкой шестерёнки.
@@ -253,7 +253,7 @@ class _WeakTopicsSection extends StatelessWidget {
               border: Border.all(color: cs.outlineVariant),
             ),
             child: Row(
-              children: [
+              children: <Widget>[
                 Icon(Icons.info_outline, size: 18, color: cs.onSurfaceVariant),
                 const SizedBox(width: 10),
                 Expanded(

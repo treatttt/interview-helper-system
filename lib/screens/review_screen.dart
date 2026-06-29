@@ -13,11 +13,16 @@ class ReviewScreen extends StatelessWidget {
     required this.grade,
     required this.progress,
     super.key,
+    this.questionGradeKeys,
   });
   final SessionResult result;
   final Track track;
   final Grade grade;
   final ProgressService progress;
+
+  /// Если задано — исходная сессия была миксом; «Проработать ошибки»
+  /// перезапускается тоже как микс (прогресс пишется по своим грейдам).
+  final Map<String, String>? questionGradeKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +60,7 @@ class ReviewScreen extends StatelessWidget {
                           grade: grade,
                           questions: errorQuestions,
                           progress: progress,
+                          questionGradeKeys: questionGradeKeys,
                         ),
                       ),
                           (r) => r.isFirst,

@@ -239,9 +239,12 @@ void main() {
         (tester) async {
       await tester.pumpWidget(await homeUnder(_FakeRepo.data(const [])));
       await tester.pumpAndSettle();
-      // Дашборд отображает секцию направлений и CTA даже при пустом списке.
-      expect(find.text('Все направления'), findsOneWidget);
-      expect(find.text('Начать тренировку'), findsOneWidget);
+      // Дашборд отображает шапку, дневную цель и секцию направлений даже при
+      // пустом списке — без краша.
+      expect(find.text('Главная'), findsWidgets);
+      expect(find.text('Ежедневная цель'), findsOneWidget);
+      expect(find.text('ВАШИ НАПРАВЛЕНИЯ'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },);
 
     testWidgets('есть треки → список отображается', (tester) async {
@@ -270,7 +273,8 @@ void main() {
 
       await tester.pumpWidget(await homeUnder(_FakeRepo.data(tracks)));
       await tester.pumpAndSettle();
-      expect(find.text('Аналитика'), findsOneWidget);
+      // «Аналитика» появляется и в карточке старта, и в строке направления.
+      expect(find.text('Аналитика'), findsWidgets);
     });
   });
 }

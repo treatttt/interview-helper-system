@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
+import 'package:interview_helper_system/screens/practice_screen.dart';
 import 'package:interview_helper_system/screens/profile_screen.dart';
-import 'package:interview_helper_system/screens/topics_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 
 /// Корневой экран после онбординга: NavigationBar (Material 3) + IndexedStack.
 ///
-/// Вкладки: Обзор (дашборд готовности) / Темы (каталог направлений) / Профиль.
+/// Вкладки: Главная (дашборд готовности) / Практика (направления и темы) / Профиль.
 /// IndexedStack сохраняет состояние всех вкладок между переключениями.
 /// Переходы в сессию/результат/разбор открываются через Navigator.push
 /// поверх этого экрана — таб-бар при этом скрывается, что соответствует
@@ -42,7 +42,7 @@ class _MainShellState extends State<MainShell> {
             repository: widget.repository,
             progress: widget.progress,
           ),
-          TopicsScreen(
+          PracticeScreen(
             repository: widget.repository,
             progress: widget.progress,
           ),
@@ -58,14 +58,13 @@ class _MainShellState extends State<MainShell> {
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Обзор',
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Главная',
           ),
           NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Темы',
+            icon: Icon(Icons.track_changes),
+            label: 'Практика',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

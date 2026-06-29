@@ -57,29 +57,34 @@ void main() {
       await tester.pump();
 
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Обзор'), findsWidgets);  // AppBar + таб-бар
-      expect(find.text('Темы'), findsOneWidget);
+      expect(find.text('Главная'), findsWidgets);  // шапка экрана + таб-бар
+      expect(find.text('Практика'), findsWidgets); // шапка экрана + таб-бар
       expect(find.text('Профиль'), findsOneWidget);
     });
 
-    testWidgets('по умолчанию активна вкладка «Обзор»', (tester) async {
+    testWidgets('по умолчанию активна вкладка «Главная»', (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
-      // «Обзор» — заголовок AppBar HomeScreen (дашборд)
-      expect(find.text('Обзор'), findsWidgets);
+      // «Главная» — заголовок шапки HomeScreen (дашборд)
+      expect(find.text('Главная'), findsWidgets);
     });
 
-    testWidgets('переход на вкладку «Темы» показывает каталог направлений',
+    testWidgets('переход на вкладку «Практика» показывает выбор направления',
         (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
 
-      await tester.tap(find.text('Темы'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Практика'),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      // «Темы» — в AppBar и таб-баре
-      expect(find.text('Темы'), findsWidgets);
+      // На экране Практики — заголовок и подпись секции выбора направления.
+      expect(find.text('Выберите направление'.toUpperCase()), findsOneWidget);
     },);
 
     testWidgets('переход на вкладку «Профиль» показывает экран профиля',
@@ -106,8 +111,14 @@ void main() {
       await tester.tap(find.text('Профиль'));
       await tester.pumpAndSettle();
 
-      // Возвращаемся на дашборд через таб «Обзор»
-      await tester.tap(find.text('Обзор'));
+      // Возвращаемся на дашборд через таб «Главная» (целимся в таб-бар:
+      // «Главная» также есть в шапке экрана).
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Главная'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // HomeScreen всё ещё существует и не пересоздан —
