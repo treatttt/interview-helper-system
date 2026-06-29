@@ -6,6 +6,7 @@ import 'package:interview_helper_system/screens/topic_session.dart';
 import 'package:interview_helper_system/screens/tracks_loader.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
+import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
 import 'package:interview_helper_system/theme.dart';
 import 'package:interview_helper_system/utils/tap_lock.dart';
@@ -17,12 +18,14 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.progress,
     required this.themeService,
+    required this.reminderService,
     required this.repository,
     super.key,
   });
 
   final ProgressService progress;
   final ThemeService themeService;
+  final ReminderService reminderService;
   final QuestionRepository repository;
 
   @override
@@ -51,8 +54,10 @@ class _ProfileScreenState extends State<ProfileScreen>
       Navigator.push(
         context,
         MaterialPageRoute<void>(
+          settings: const RouteSettings(name: 'Настройки'),
           builder: (_) => SettingsScreen(
             themeService: widget.themeService,
+            reminderService: widget.reminderService,
             progress: widget.progress,
           ),
         ),
@@ -87,6 +92,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         builder: (context, _) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const _ProfileHeader(),
+            const SizedBox(height: 24),
             _StatsSection(progress: widget.progress),
             const SizedBox(height: 24),
             _WeakTopicsSection(
@@ -97,6 +104,45 @@ class _ProfileScreenState extends State<ProfileScreen>
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Шапка профиля: аватар-заглушка и имя пользователя.
+/// Пока без редактирования — имя и фото фиксированные плейсхолдеры.
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: cs.surfaceContainerHighest,
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Icon(
+            Icons.person_outline,
+            size: 48,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Имя Фамилия',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+            color: cs.onSurface,
+          ),
+        ),
+      ],
     );
   }
 }

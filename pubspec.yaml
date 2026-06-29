@@ -12,6 +12,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.2                 # запросы к твоему серверу (на будущее)
   shared_preferences: ^2.5.5   # локальное хранение прогресса и streak
+  flutter_local_notifications: ^19.5.0  # локальные напоминания (push-уведомления)
+  timezone: ^0.10.0            # часовой пояс для ежедневного расписания
 dev_dependencies:
   dart_code_linter: ^4.1.5
   flutter_lints: ^6.0.0

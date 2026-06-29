@@ -342,18 +342,12 @@ class HomeController {
     if (target == null) return null;
     final (:track, :grade, :remaining) = target;
 
-    String? topic;
-    for (final q in remaining) {
-      final t = q.topic;
-      if (t != null && t.isNotEmpty) {
-        topic = t;
-        break;
-      }
-    }
-
+    // Свежий старт после онбординга — это общий тест по направлению, а не
+    // дрилл одной темы: заголовок несёт название курса (трека), а подзаголовок
+    // уточняет грейд. Сессия и так гоняет все непройденные вопросы грейда.
     return ContinueCard(
-      title: topic ?? track.title,
-      subtitle: '${track.title} · ${grade.title}',
+      title: track.title,
+      subtitle: grade.title,
       questionNumber: 0,
       questionTotal: remaining.length,
       isResume: false,

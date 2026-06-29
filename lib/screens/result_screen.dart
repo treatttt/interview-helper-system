@@ -40,7 +40,9 @@ class ResultScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final s = AppSemanticColors.of(context);
-    final accent = _scoreColor(s, _percent);
+    // Заливка круга — всегда брендовый цвет, как у кнопок «Продолжить»,
+    // независимо от доли верных ответов.
+    final accent = cs.primary;
 
     return Scaffold(
       appBar: AppBar(
@@ -204,7 +206,6 @@ class ResultScreen extends StatelessWidget {
     final weak = weakTopicsFromAnswers(result.answers);
     if (weak.isEmpty) return const [];
     final cs = Theme.of(context).colorScheme;
-    final s = AppSemanticColors.of(context);
 
     return [
       const SizedBox(height: 24),
@@ -235,7 +236,7 @@ class ResultScreen extends StatelessWidget {
                   endIndent: 14,
                   color: cs.outlineVariant,
                 ),
-              _topicRow(context, weak[i], _scoreColor(s, weak[i].percent)),
+              _topicRow(context, weak[i], cs.primary),
             ],
           ],
         ),
@@ -332,13 +333,5 @@ class ResultScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// Цвет акцента по проценту: красный/жёлтый/бренд/зелёный — в тон похвале.
-  Color _scoreColor(AppSemanticColors s, int percent) {
-    if (percent < 50) return s.dangerFg;
-    if (percent < 60) return s.warningFg;
-    if (percent < 90) return s.infoFg;
-    return s.successFg;
   }
 }

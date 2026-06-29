@@ -363,19 +363,21 @@ class _ContinueCardView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Заголовок и счётчик «Вопрос N / M» в одну строку — компактнее.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              if (card.isResume)
-                Text(
-                  'ПРОДОЛЖИТЬ',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: cs.onSurfaceVariant,
-                  ),
+              Expanded(
+                child: Text(
+                  card.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
-              const Spacer(),
+              ),
+              const SizedBox(width: 12),
               Text(
                 'Вопрос ${card.questionNumber} / ${card.questionTotal}',
                 style: TextStyle(
@@ -385,11 +387,6 @@ class _ContinueCardView extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            card.title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
