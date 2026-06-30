@@ -11,6 +11,7 @@ import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/services/user_profile_service.dart';
 
 /// Корневой экран после онбординга: NavigationBar (Material 3) + IndexedStack.
 ///
@@ -24,6 +25,7 @@ class MainShell extends StatefulWidget {
     required this.progress,
     required this.themeService,
     required this.reminderService,
+    required this.userProfile,
     super.key,
   });
 
@@ -31,6 +33,7 @@ class MainShell extends StatefulWidget {
   final ProgressService progress;
   final ThemeService themeService;
   final ReminderService reminderService;
+  final UserProfileService userProfile;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -75,6 +78,7 @@ class _MainShellState extends State<MainShell> {
             progress: widget.progress,
             themeService: widget.themeService,
             reminderService: widget.reminderService,
+            userProfile: widget.userProfile,
             repository: widget.repository,
           ),
         ],

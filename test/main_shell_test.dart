@@ -7,6 +7,7 @@ import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/services/user_profile_service.dart';
 import 'package:interview_helper_system/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,6 +43,8 @@ Future<Widget> _buildApp({
 
   final reminders = ReminderService();
   await reminders.init();
+  final userProfile = UserProfileService();
+  await userProfile.init();
 
   return MaterialApp(
     theme: buildLightTheme(),
@@ -51,6 +54,7 @@ Future<Widget> _buildApp({
       progress: p,
       themeService: t,
       reminderService: reminders,
+      userProfile: userProfile,
     ),
   );
 }
@@ -102,7 +106,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Профиль'), findsWidgets); // AppBar + таб-бар
-      expect(find.text('Статистика'), findsOneWidget);
+      expect(find.text('ДОСТИЖЕНИЯ'), findsOneWidget);
+      expect(find.text('ЦЕЛЬ И НАСТРОЙКИ'), findsOneWidget);
     },);
 
     testWidgets('переключение вкладок не пересоздаёт HomeScreen (IndexedStack)',
@@ -149,7 +154,8 @@ void main() {
       await tester.tap(find.text('Профиль'));
       await tester.pumpAndSettle();
 
-      expect(find.text('120 XP'), findsOneWidget);
+      // Карточка уровня показывает прогресс XP внутри уровня.
+      expect(find.text('120 / 500 XP'), findsOneWidget);
     });
 
     testWidgets('экран профиля показывает streak из ProgressService', (tester) async {
@@ -167,10 +173,10 @@ void main() {
       await tester.tap(find.text('Профиль'));
       await tester.pumpAndSettle();
 
-      expect(find.text('7 д.'), findsOneWidget);
+      expect(find.text('Серия 7 дн.'), findsOneWidget);
     });
 
-    testWidgets('при нулевом прогрессе streak и точность отображаются как «—»',
+    testWidgets('при нулевом прогрессе серия и точность отображаются как «—»',
         (tester) async {
       await tester.pumpWidget(await _buildApp());
       await tester.pump();
@@ -178,8 +184,9 @@ void main() {
       await tester.tap(find.text('Профиль'));
       await tester.pumpAndSettle();
 
-      // Две строки с «—»: серия дней и общая точность (оба без данных)
-      expect(find.text('—'), findsNWidgets(2));
+      // Бейджи достижений без данных: серия и точность показывают «—».
+      expect(find.text('Серия —'), findsOneWidget);
+      expect(find.text('Точность —'), findsOneWidget);
     });
   });
 }

@@ -10,6 +10,7 @@ import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/question_repository.dart';
 import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/services/user_profile_service.dart';
 import 'package:interview_helper_system/theme.dart';
 
 void main() async {
@@ -20,11 +21,14 @@ void main() async {
   await themeService.init();
   final reminderService = ReminderService();
   await reminderService.init();
+  final userProfile = UserProfileService();
+  await userProfile.init();
   runApp(
     InterviewHelperApp(
       progress: progress,
       themeService: themeService,
       reminderService: reminderService,
+      userProfile: userProfile,
     ),
   );
 }
@@ -43,11 +47,13 @@ class InterviewHelperApp extends StatelessWidget {
     required this.progress,
     required this.themeService,
     required this.reminderService,
+    required this.userProfile,
     super.key,
   });
   final ProgressService progress;
   final ThemeService themeService;
   final ReminderService reminderService;
+  final UserProfileService userProfile;
   final navigatorKey = GlobalKey<NavigatorState>();
 
   @override
@@ -73,9 +79,11 @@ class InterviewHelperApp extends StatelessWidget {
           progress: progress,
           themeService: themeService,
           reminderService: reminderService,
+          userProfile: userProfile,
         )
             : OnboardingScreen(
-          onFinish: () {
+          onFinish: (firstName, lastName) {
+            unawaited(userProfile.setName(firstName, lastName));
             unawaited(progress.markOnboardingDone());
             final navigator = navigatorKey.currentState;
             if (navigator == null) return;
@@ -88,6 +96,7 @@ class InterviewHelperApp extends StatelessWidget {
                     progress: progress,
                     themeService: themeService,
                     reminderService: reminderService,
+                    userProfile: userProfile,
                   ),
                 ),
               ),
