@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:interview_helper_system/dev/feedback_flag.dart';
+import 'package:interview_helper_system/dev/feedback_route_observer.dart';
 import 'package:interview_helper_system/screens/home_screen.dart';
 import 'package:interview_helper_system/screens/practice_screen.dart';
 import 'package:interview_helper_system/screens/profile_screen.dart';
@@ -35,7 +37,21 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  /// Подписи вкладок — порядок совпадает с детьми IndexedStack и items нав-бара.
+  static const _tabLabels = ['Главная', 'Практика', 'Прогресс', 'Профиль'];
+
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kFeedbackEnabled) feedbackRouteObserver.updateTab(_tabLabels[0]);
+  }
+
+  void _selectTab(int i) {
+    setState(() => _selectedIndex = i);
+    if (kFeedbackEnabled) feedbackRouteObserver.updateTab(_tabLabels[i]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +81,7 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: PillBottomNav(
         selectedIndex: _selectedIndex,
-        onSelected: (i) => setState(() => _selectedIndex = i),
+        onSelected: _selectTab,
         items: const [
           PillNavItem(
             icon: Icons.home_outlined,
