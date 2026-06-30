@@ -107,7 +107,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   void _openTrack(Track track) => guardTap(
         () => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            settings: RouteSettings(name: 'Темы направления: ${track.title}'),
+            settings: const RouteSettings(name: 'Темы направления'),
             builder: (_) => PracticeTopicsScreen(
               track: track,
               progress: widget.progress,
@@ -128,7 +128,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     guardTap(
       () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          settings: const RouteSettings(name: 'Вопросы: Тренировка дня'),
+          settings: const RouteSettings(name: 'Вопросы'),
           builder: (_) => SessionScreen(
             track: view.repTrack!,
             grade: view.repGrade!,

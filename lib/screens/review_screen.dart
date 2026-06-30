@@ -54,9 +54,7 @@ class ReviewScreen extends StatelessWidget {
                       : () {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute<void>(
-                        settings: RouteSettings(
-                          name: 'Вопросы: ${track.title} → ${grade.title}',
-                        ),
+                        settings: const RouteSettings(name: 'Вопросы'),
                         builder: (_) => SessionScreen(
                           track: track,
                           grade: grade,

@@ -45,9 +45,7 @@ class _GradesScreenState extends State<GradesScreen> {
 
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          settings: RouteSettings(
-            name: 'Вопросы: ${widget.track.title} → ${grade.title}',
-          ),
+          settings: const RouteSettings(name: 'Вопросы'),
           builder: (_) => SessionScreen(
             track: widget.track,
             grade: grade,

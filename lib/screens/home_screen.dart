@@ -46,11 +46,7 @@ class _HomeScreenState extends State<HomeScreen>
   void _launch(SessionLaunch l) => guardTap(
         () => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            settings: RouteSettings(
-              name: l.topicTitle != null
-                  ? 'Вопросы: ${l.topicTitle}'
-                  : 'Вопросы: ${l.track.title} → ${l.grade.title}',
-            ),
+            settings: const RouteSettings(name: 'Вопросы'),
             builder: (_) => SessionScreen(
               track: l.track,
               grade: l.grade,
@@ -67,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _pushGrades(Track track) {
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
-        settings: RouteSettings(name: 'Грейды: ${track.title}'),
+        settings: const RouteSettings(name: 'Грейды'),
         builder: (_) => GradesScreen(track: track, progress: widget.progress),
       ),
     );
