@@ -1,7 +1,21 @@
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/utils/ru_format.dart';
 
 void main() {
+  group('formatRuTime — 24-часовой формат СНГ', () {
+    test('вечернее время с нулевыми минутами', () {
+      expect(formatRuTime(const TimeOfDay(hour: 19, minute: 0)), '19:00');
+    });
+    test('ведущие нули в часах и минутах', () {
+      expect(formatRuTime(const TimeOfDay(hour: 7, minute: 5)), '07:05');
+    });
+    test('полночь и около полудня', () {
+      expect(formatRuTime(const TimeOfDay(hour: 0, minute: 0)), '00:00');
+      expect(formatRuTime(const TimeOfDay(hour: 13, minute: 30)), '13:30');
+    });
+  });
+
   group('formatRuDateHeader — «ДЕНЬ, N МЕСЯЦ» заглавными', () {
     test('понедельник, январь (родительный падеж)', () {
       // 2024-01-01 — понедельник.

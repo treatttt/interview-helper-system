@@ -78,7 +78,25 @@ void main() {
       expect(sw.value, isFalse);
     });
 
-    testWidgets('включение с разрешением активирует напоминания',
+    testWidgets('включение запрашивает время и активирует напоминания',
+        (tester) async {
+      final fake = _FakeScheduler();
+      await tester.pumpWidget(await _buildSettings(scheduler: fake));
+
+      // Включение открывает прокручиваемый выбор времени.
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      expect(find.text('Готово'), findsOneWidget);
+
+      await tester.tap(find.text('Готово'));
+      await tester.pumpAndSettle();
+
+      final sw = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      expect(sw.value, isTrue);
+      expect(fake.scheduleCalls, greaterThanOrEqualTo(1));
+    });
+
+    testWidgets('отмена выбора времени оставляет напоминания выключенными',
         (tester) async {
       final fake = _FakeScheduler();
       await tester.pumpWidget(await _buildSettings(scheduler: fake));
@@ -86,9 +104,12 @@ void main() {
       await tester.tap(find.byType(SwitchListTile));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+
       final sw = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
-      expect(sw.value, isTrue);
-      expect(fake.scheduleCalls, greaterThanOrEqualTo(1));
+      expect(sw.value, isFalse);
+      expect(fake.scheduleCalls, 0);
     });
 
     testWidgets('без разрешения переключатель остаётся выключенным и показывает подсказку',
@@ -98,19 +119,21 @@ void main() {
 
       await tester.tap(find.byType(SwitchListTile));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Готово'));
+      await tester.pumpAndSettle();
 
       final sw = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
       expect(sw.value, isFalse);
       expect(find.byType(SnackBar), findsOneWidget);
     });
 
-    testWidgets('показывает строку времени напоминания', (tester) async {
+    testWidgets('показывает строку времени напоминания в формате СНГ',
+        (tester) async {
       await tester.pumpWidget(await _buildSettings());
 
       expect(find.text('Время напоминания'), findsOneWidget);
-      // 19:00 рендерится как «7:00 PM» в дефолтной локали тестов — проверяем
-      // лишь наличие отформатированного времени (содержит «:00»).
-      expect(find.textContaining(':00'), findsWidgets);
+      // Время по умолчанию 19:00 рендерится в 24-часовом формате.
+      expect(find.text('19:00'), findsOneWidget);
     });
   });
 }

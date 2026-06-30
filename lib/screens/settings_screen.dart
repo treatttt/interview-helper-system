@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/utils/reminder_prompt.dart';
+import 'package:interview_helper_system/utils/ru_format.dart';
 import 'package:interview_helper_system/widgets/app_dialog.dart';
+import 'package:interview_helper_system/widgets/wheel_time_picker.dart';
 
 /// Экран настроек: тема, ежедневные напоминания + деструктивный сброс прогресса.
 class SettingsScreen extends StatelessWidget {
@@ -53,20 +56,18 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _toggleReminder(BuildContext context, bool value) async {
-    final ok = await reminderService.setEnabled(value);
-    if (!ok && value && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Разрешите уведомления, чтобы получать напоминания'),
-        ),
-      );
+    if (value) {
+      // Включение всегда начинается с выбора времени (как на Профиле).
+      await enableRemindersWithPrompt(context, reminderService);
+    } else {
+      await reminderService.setEnabled(false);
     }
   }
 
   Future<void> _pickReminderTime(BuildContext context) async {
-    final picked = await showTimePicker(
+    final picked = await showWheelTimePicker(
       context: context,
-      initialTime: reminderService.time,
+      initial: reminderService.time,
     );
     if (picked != null) await reminderService.setTime(picked);
   }
@@ -126,7 +127,7 @@ class SettingsScreen extends StatelessWidget {
             _SettingRow(
               icon: Icons.schedule_outlined,
               title: 'Время напоминания',
-              trailing: reminderService.time.format(context),
+              trailing: formatRuTime(reminderService.time),
               enabled: reminderService.enabled,
               onTap: () => unawaited(_pickReminderTime(context)),
             ),

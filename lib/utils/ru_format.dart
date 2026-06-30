@@ -2,6 +2,18 @@
 /// Достаточно для статичных подписей UI (шапка Главной, счётчики вопросов).
 library;
 
+import 'package:flutter/material.dart' show TimeOfDay;
+
+/// Время в формате СНГ (24 часа, с ведущим нулём): «19:00», «07:05».
+///
+/// Замена `TimeOfDay.format(context)`, которая без сконфигурированной локали
+/// `ru` рендерит «7:00 PM». Час берём из [TimeOfDay.hour] (0–23) напрямую.
+String formatRuTime(TimeOfDay time) {
+  final hh = time.hour.toString().padLeft(2, '0');
+  final mm = time.minute.toString().padLeft(2, '0');
+  return '$hh:$mm';
+}
+
 const _weekdaysUpper = <String>[
   'ПОНЕДЕЛЬНИК',
   'ВТОРНИК',
