@@ -3,7 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/screens/onboarding_screen.dart';
 
 void main() {
-  Widget host(VoidCallback onFinish, {bool disableAnimations = false}) {
+  Widget host(
+    void Function(String firstName, String? lastName) onFinish, {
+    bool disableAnimations = false,
+  }) {
     final screen = OnboardingScreen(onFinish: onFinish);
     return MaterialApp(
       home: disableAnimations
@@ -15,11 +18,11 @@ void main() {
     );
   }
 
-  // === Тур + финальная кнопка (строки 61-63, 74-79, 87-89, 188-191, 277-313)
-  testWidgets('«Далее» листает карточки, финальная кнопка вызывает onFinish',
+  // === Тур + карточка имени + финальная кнопка ==============================
+  testWidgets('«Далее» листает карточки; ввод имени активирует «Начать»',
       (tester) async {
-    var finished = false;
-    await tester.pumpWidget(host(() => finished = true));
+    String? finishedName;
+    await tester.pumpWidget(host((first, _) => finishedName = first));
     await tester.pumpAndSettle();
 
     expect(find.text('Тренируйся короткими сессиями'), findsOneWidget);
@@ -31,17 +34,28 @@ void main() {
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
     expect(find.text('Возвращайся — серия растёт'), findsOneWidget);
-    expect(find.text('Начать первую сессию'), findsOneWidget);
 
-    await tester.tap(find.text('Начать первую сессию'));
+    // Третий «Далее» ведёт на карточку имени.
+    await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
-    expect(finished, isTrue);
-  },);
+    expect(find.text('Как тебя зовут?'), findsOneWidget);
 
-  // === «Пропустить» → onFinish (строка 106) =================================
+    // Пока имя пустое — «Начать» заблокирована.
+    final btnBefore = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(btnBefore.onPressed, isNull);
+
+    await tester.enterText(find.byType(TextField).first, 'Никита');
+    await tester.pump();
+
+    await tester.tap(find.text('Начать'));
+    await tester.pumpAndSettle();
+    expect(finishedName, 'Никита');
+  });
+
+  // === «Пропустить» → onFinish (с пустым именем) ============================
   testWidgets('«Пропустить» вызывает onFinish', (tester) async {
     var finished = false;
-    await tester.pumpWidget(host(() => finished = true));
+    await tester.pumpWidget(host((first, last) => finished = true));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Пропустить'));
@@ -50,24 +64,24 @@ void main() {
     expect(finished, isTrue);
   });
 
-  // === Reduced-motion: контент сразу (строки 92-94) =========================
+  // === Reduced-motion: контент сразу ========================================
   testWidgets('при отключённых анимациях контент показывается сразу',
       (tester) async {
-    await tester.pumpWidget(host(() {}, disableAnimations: true));
+    await tester.pumpWidget(host((_, __) {}, disableAnimations: true));
     await tester.pump();
 
     expect(find.text('Тренируйся короткими сессиями'), findsOneWidget);
     expect(tester.takeException(), isNull);
-  },);
+  });
 
-  // === dispose контроллеров (строки 69-71) ==================================
+  // === dispose контроллеров =================================================
   testWidgets('освобождает контроллеры при размонтировании без ошибок',
       (tester) async {
-    await tester.pumpWidget(host(() {}));
+    await tester.pumpWidget(host((_, __) {}));
     await tester.pump();
 
     await tester.pumpWidget(const SizedBox.shrink());
 
     expect(tester.takeException(), isNull);
-  },);
+  });
 }
