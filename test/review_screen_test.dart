@@ -20,6 +20,7 @@ Question _q({
   required List<String> options,
   required List<int> correct,
   String? explanation,
+  List<String>? importantToKnow,
 }) =>
     Question(
       id: id,
@@ -27,6 +28,7 @@ Question _q({
       options: options,
       correctIndexes: correct,
       explanation: explanation,
+      importantToKnow: importantToKnow,
     );
 
 AnsweredQuestion _answer({
@@ -79,195 +81,47 @@ void main() {
     );
   }
 
-  // === Карточки ============================================================
-  testWidgets('рендерит по карточке на каждый отвеченный вопрос',
+  // === Список ошибок =======================================================
+  testWidgets('показывает только неверные ответы, верные скрыты',
       (tester) async {
     final result = _result([
       _answer(
         question: _q(
-            id: 'q1',
-            text: 'Что такое нормализация?',
-            options: ['A', 'B'],
-            correct: [0],),
-        selected: {0},
-        outcome: AnswerOutcome.correct,
-      ),
-      _answer(
-        question: _q(
-            id: 'q2',
-            text: 'Что делает GROUP BY?',
-            options: ['A', 'B'],
-            correct: [1],),
-        selected: {0},
-        outcome: AnswerOutcome.wrong,
-      ),
-    ]);
-
-    await pumpReview(tester, result);
-
-    expect(find.text('Что такое нормализация?'), findsOneWidget);
-    expect(find.text('Что делает GROUP BY?'), findsOneWidget);
-  },);
-
-  // === Поэлементный разбор: одиночный выбор, неверно =======================
-  testWidgets(
-      'одиночный выбор с ошибкой: правильный → «верно», '
-      'выбранный неверный → «лишнее», badge «Неверно»', (tester) async {
-    final result = _result([
-      _answer(
-        question: _q(
-            id: 'q1',
-            text: 'Вопрос',
-            options: ['Правильный', 'Ошибочный'],
-            correct: [0],),
-        selected: {1},
-        outcome: AnswerOutcome.wrong,
-      ),
-    ]);
-
-    await pumpReview(tester, result);
-
-    expect(find.text('верно'), findsOneWidget);
-    expect(find.text('лишнее'), findsOneWidget);
-    expect(find.text('Неверно'), findsOneWidget);
-    expect(find.text('пропущено'), findsNothing);
-  },);
-
-  // === Поэлементный разбор: мультивыбор, частично ==========================
-  testWidgets('мультивыбор: все четыре состояния и badge «Частично»',
-      (tester) async {
-    // correct = {0,1}; выбрано {0,2}.
-    // 0: верный+выбран → «верно»; 1: верный+пропущен → «пропущено»;
-    // 2: неверный+выбран → «лишнее»; 3: нейтральный → без тега.
-    final result = _result([
-      _answer(
-        question: _q(
           id: 'q1',
-          text: 'Вопрос',
-          options: ['A', 'B', 'C', 'D'],
-          correct: [0, 1],
-        ),
-        selected: {0, 2},
-        outcome: AnswerOutcome.partial,
-      ),
-    ]);
-
-    await pumpReview(tester, result);
-
-    expect(find.text('верно'), findsOneWidget);
-    expect(find.text('пропущено'), findsOneWidget);
-    expect(find.text('лишнее'), findsOneWidget);
-    expect(find.text('Частично'), findsOneWidget);
-    // Нейтральный вариант отрисован, но без тега (всего три тега на карточке).
-    expect(find.text('D'), findsOneWidget);
-  },);
-
-  // === Поэлементный разбор: одиночный выбор, верно =========================
-  testWidgets(
-      'верный одиночный ответ: badge «Верно», правильный → «верно», '
-      'без «лишнее»/«пропущено»', (tester) async {
-    final result = _result([
-      _answer(
-        question: _q(
-            id: 'q1',
-            text: 'Вопрос',
-            options: ['Правильный', 'Другой'],
-            correct: [0],),
-        selected: {0},
-        outcome: AnswerOutcome.correct,
-      ),
-    ]);
-
-    await pumpReview(tester, result);
-
-    expect(find.text('Верно'), findsOneWidget);
-    expect(find.text('верно'), findsOneWidget);
-    expect(find.text('лишнее'), findsNothing);
-    expect(find.text('пропущено'), findsNothing);
-  },);
-
-  // === Пояснение ===========================================================
-  testWidgets('показывает пояснение, когда оно задано', (tester) async {
-    final result = _result([
-      _answer(
-        question: _q(
-          id: 'q1',
-          text: 'Вопрос',
+          text: 'ВЕРНЫЙ ВОПРОС',
           options: ['A', 'B'],
           correct: [0],
-          explanation: 'Потому что так работает индекс.',
         ),
-        selected: {0},
-        outcome: AnswerOutcome.correct,
-      ),
-    ]);
-
-    await pumpReview(tester, result);
-
-    expect(find.text('Потому что так работает индекс.'), findsOneWidget);
-  });
-
-  testWidgets('не показывает блок пояснения, когда оно пустое/пробельное',
-      (tester) async {
-    final result = _result([
-      _answer(
-        question: _q(
-            id: 'q1', text: 'Без пояснения', options: ['A', 'B'], correct: [0],),
         selected: {0},
         outcome: AnswerOutcome.correct,
       ),
       _answer(
         question: _q(
           id: 'q2',
-          text: 'Пробельное пояснение',
+          text: 'ОШИБОЧНЫЙ ВОПРОС',
           options: ['A', 'B'],
-          correct: [0],
-          explanation: '   ',
+          correct: [1],
         ),
         selected: {0},
-        outcome: AnswerOutcome.correct,
-      ),
-    ]);
-
-    await pumpReview(tester, result);
-
-    // Карточки на месте, но пробельное пояснение не порождает блок.
-    expect(find.text('Без пояснения'), findsOneWidget);
-    expect(find.text('Пробельное пояснение'), findsOneWidget);
-    expect(find.text('   '), findsNothing);
-  },);
-
-  // === Нижние кнопки =======================================================
-  testWidgets(
-      'при наличии ошибок кнопка активна и подписана '
-      '«Проработать ошибки»', (tester) async {
-    final result = _result([
-      _answer(
-        question:
-            _q(id: 'q1', text: 'Вопрос', options: ['A', 'B'], correct: [0]),
-        selected: {1},
         outcome: AnswerOutcome.wrong,
       ),
     ]);
 
     await pumpReview(tester, result);
 
-    expect(find.text('Проработать ошибки'), findsOneWidget);
-    expect(find.text('Ошибок нет'), findsNothing);
+    expect(find.text('ОШИБОЧНЫЙ ВОПРОС'), findsOneWidget);
+    expect(find.text('ВЕРНЫЙ ВОПРОС'), findsNothing);
+  });
 
-    final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
-    expect(button.onPressed, isNotNull);
-  },);
-
-  testWidgets('partial считается ошибкой: кнопка «Проработать ошибки» активна',
-      (tester) async {
+  testWidgets('partial считается ошибкой и попадает в список', (tester) async {
     final result = _result([
       _answer(
         question: _q(
-            id: 'q1',
-            text: 'Вопрос',
-            options: ['A', 'B', 'C'],
-            correct: [0, 1],),
+          id: 'q1',
+          text: 'ЧАСТИЧНЫЙ ВОПРОС',
+          options: ['A', 'B', 'C'],
+          correct: [0, 1],
+        ),
         selected: {0},
         outcome: AnswerOutcome.partial,
       ),
@@ -275,12 +129,124 @@ void main() {
 
     await pumpReview(tester, result);
 
-    expect(find.text('Проработать ошибки'), findsOneWidget);
-    final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
-    expect(button.onPressed, isNotNull);
-  },);
+    expect(find.text('ЧАСТИЧНЫЙ ВОПРОС'), findsOneWidget);
+  });
 
-  testWidgets('когда всё верно — кнопка «Ошибок нет» и она неактивна',
+  // === Сворачивание / разворачивание =======================================
+  testWidgets('карточка свёрнута по умолчанию: разбор скрыт', (tester) async {
+    final result = _result([
+      _answer(
+        question: _q(
+          id: 'q1',
+          text: 'Вопрос',
+          options: ['Правильный вариант', 'Ошибочный'],
+          correct: [0],
+          explanation: 'Потому что так устроен индекс.',
+        ),
+        selected: {1},
+        outcome: AnswerOutcome.wrong,
+      ),
+    ]);
+
+    await pumpReview(tester, result);
+
+    expect(find.text('Вопрос'), findsOneWidget);
+    // До тапа разбор не показан.
+    expect(find.text('ПРАВИЛЬНЫЙ ОТВЕТ'), findsNothing);
+    expect(find.text('Правильный вариант'), findsNothing);
+    expect(find.text('ПОЧЕМУ'), findsNothing);
+    expect(find.text('Потому что так устроен индекс.'), findsNothing);
+  });
+
+  testWidgets(
+      'тап разворачивает карточку: правильный ответ, «Почему» и смежные '
+      'знания — без навигации', (tester) async {
+    final result = _result([
+      _answer(
+        question: _q(
+          id: 'q1',
+          text: 'Вопрос',
+          options: ['Правильный вариант', 'Ошибочный'],
+          correct: [0],
+          explanation: 'Потому что так устроен индекс.',
+          importantToKnow: ['JOIN объединяет таблицы', 'LIMIT режет строки'],
+        ),
+        selected: {1},
+        outcome: AnswerOutcome.wrong,
+      ),
+    ]);
+
+    await pumpReview(tester, result);
+
+    await tester.tap(find.text('Вопрос'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ПРАВИЛЬНЫЙ ОТВЕТ'), findsOneWidget);
+    expect(find.text('Правильный вариант'), findsOneWidget);
+    expect(find.text('ПОЧЕМУ'), findsOneWidget);
+    expect(find.text('Потому что так устроен индекс.'), findsOneWidget);
+    expect(find.text('ЧТО ЕЩЁ ВАЖНО ЗНАТЬ'), findsOneWidget);
+    expect(find.text('JOIN объединяет таблицы'), findsOneWidget);
+    expect(find.text('LIMIT режет строки'), findsOneWidget);
+    // Остаёмся на том же экране — навигации не было.
+    expect(find.byType(ReviewScreen), findsOneWidget);
+    expect(find.byType(SessionScreen), findsNothing);
+  });
+
+  testWidgets('повторный тап сворачивает карточку обратно', (tester) async {
+    final result = _result([
+      _answer(
+        question: _q(
+          id: 'q1',
+          text: 'Вопрос',
+          options: ['Правильный вариант', 'Ошибочный'],
+          correct: [0],
+          explanation: 'Объяснение.',
+        ),
+        selected: {1},
+        outcome: AnswerOutcome.wrong,
+      ),
+    ]);
+
+    await pumpReview(tester, result);
+
+    await tester.tap(find.text('Вопрос'));
+    await tester.pumpAndSettle();
+    expect(find.text('Объяснение.'), findsOneWidget);
+
+    await tester.tap(find.text('Вопрос'));
+    await tester.pumpAndSettle();
+    expect(find.text('Объяснение.'), findsNothing);
+  });
+
+  testWidgets('без пояснения и смежных знаний разворот не падает и не '
+      'показывает их секции', (tester) async {
+    final result = _result([
+      _answer(
+        question: _q(
+          id: 'q1',
+          text: 'Вопрос',
+          options: ['Правильный', 'Ошибочный'],
+          correct: [0],
+        ),
+        selected: {1},
+        outcome: AnswerOutcome.wrong,
+      ),
+    ]);
+
+    await pumpReview(tester, result);
+
+    await tester.tap(find.text('Вопрос'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ПРАВИЛЬНЫЙ ОТВЕТ'), findsOneWidget);
+    expect(find.text('ПОЧЕМУ'), findsNothing);
+    expect(find.text('ЧТО ЕЩЁ ВАЖНО ЗНАТЬ'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  // === Пустое состояние ====================================================
+  testWidgets('когда всё верно — пустое состояние и кнопка «Ошибок нет»',
       (tester) async {
     final result = _result([
       _answer(
@@ -298,7 +264,28 @@ void main() {
 
     final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
     expect(button.onPressed, isNull);
-  },);
+  });
+
+  // === Нижние кнопки =======================================================
+  testWidgets('при наличии ошибок кнопка активна и подписана «Проработать '
+      'ошибки»', (tester) async {
+    final result = _result([
+      _answer(
+        question:
+            _q(id: 'q1', text: 'Вопрос', options: ['A', 'B'], correct: [0]),
+        selected: {1},
+        outcome: AnswerOutcome.wrong,
+      ),
+    ]);
+
+    await pumpReview(tester, result);
+
+    expect(find.text('Проработать ошибки'), findsOneWidget);
+    expect(find.text('Ошибок нет'), findsNothing);
+
+    final button = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
+    expect(button.onPressed, isNotNull);
+  });
 
   // === Навигация ===========================================================
   testWidgets('«Проработать ошибки» открывает SessionScreen только с ошибками',
@@ -306,16 +293,21 @@ void main() {
     final result = _result([
       _answer(
         question: _q(
-            id: 'q1', text: 'ВЕРНЫЙ ВОПРОС', options: ['A', 'B'], correct: [0],),
+          id: 'q1',
+          text: 'ВЕРНЫЙ ВОПРОС',
+          options: ['A', 'B'],
+          correct: [0],
+        ),
         selected: {0},
         outcome: AnswerOutcome.correct,
       ),
       _answer(
         question: _q(
-            id: 'q2',
-            text: 'ОШИБОЧНЫЙ ВОПРОС',
-            options: ['A', 'B'],
-            correct: [1],),
+          id: 'q2',
+          text: 'ОШИБОЧНЫЙ ВОПРОС',
+          options: ['A', 'B'],
+          correct: [1],
+        ),
         selected: {0},
         outcome: AnswerOutcome.wrong,
       ),
@@ -331,16 +323,16 @@ void main() {
     expect(find.text('ОШИБОЧНЫЙ ВОПРОС'), findsOneWidget);
     expect(find.text('ВЕРНЫЙ ВОПРОС'), findsNothing);
     expect(tester.takeException(), isNull);
-  },);
+  });
 
   testWidgets('«В меню» возвращает к первому маршруту (popUntil isFirst)',
       (tester) async {
     final result = _result([
       _answer(
         question:
-            _q(id: 'q1', text: 'Вопрос', options: ['A', 'B'], correct: [0]),
+            _q(id: 'q1', text: 'Вопрос', options: ['A', 'B'], correct: [1]),
         selected: {0},
-        outcome: AnswerOutcome.correct,
+        outcome: AnswerOutcome.wrong,
       ),
     ]);
 
@@ -378,5 +370,5 @@ void main() {
 
     expect(find.text('Разбор ответов'), findsNothing);
     expect(find.text('ГЛАВНАЯ'), findsOneWidget);
-  },);
+  });
 }

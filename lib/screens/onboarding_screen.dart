@@ -11,11 +11,15 @@ import 'package:flutter/material.dart';
 ///
 /// Когда ролей станет ≥2 — здесь добавится третья карточка-развилка с выбором
 /// области; сейчас она сознательно не строится (UI под контент, которого нет).
+///
+/// Финальная карточка — ввод имени (фамилия опциональна). Имя передаётся в
+/// [onFinish]; сохраняет его родитель — экран хранилище не трогает.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({required this.onFinish, super.key});
 
-  /// Вызывается при завершении тура (кнопка финала) и при пропуске.
-  final VoidCallback onFinish;
+  /// Вызывается при завершении тура (кнопка финала) и при пропуске. Передаёт
+  /// введённое имя и опциональную фамилию (пустые — если пользователь пропустил).
+  final void Function(String firstName, String? lastName) onFinish;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -34,6 +38,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   late final PageController _pageController;
   late final AnimationController _entrance;
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
   int _index = 0;
 
   static const List<_OnboardingPageData> _pages = [
@@ -54,7 +60,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     ),
   ];
 
-  bool get _isLast => _index == _pages.length - 1;
+  /// Всего страниц: информационные карточки + финальная карточка ввода имени.
+  int get _pageCount => _pages.length + 1;
+
+  /// Последняя страница — ввод имени (индекс равен числу инфо-карточек).
+  bool get _isLast => _index == _pages.length;
+
+  /// Завершить онбординг с текущим введённым именем.
+  void _finish() =>
+      widget.onFinish(_firstNameCtrl.text, _lastNameCtrl.text);
 
   @override
   void initState() {
@@ -62,18 +76,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _pageController = PageController();
     _entrance = AnimationController(vsync: this, duration: _entranceDuration)
       ..forward();
+    // Обновляем доступность финального CTA по мере ввода имени.
+    _firstNameCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     _entrance.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
     super.dispose();
   }
 
   void _next() {
     if (_isLast) {
-      widget.onFinish();
+      _finish();
       return;
     }
     _pageController.nextPage(
@@ -103,7 +121,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               child: Padding(
                 padding: const EdgeInsets.only(right: 12, top: 4),
                 child: TextButton(
-                  onPressed: widget.onFinish,
+                  onPressed: _finish,
                   style: TextButton.styleFrom(
                     minimumSize: const Size(48, 48),
                     foregroundColor: colors.onSurfaceVariant,
@@ -117,22 +135,31 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
-                itemCount: _pages.length,
+                itemCount: _pageCount,
                 onPageChanged: (i) => setState(() => _index = i),
-                itemBuilder: (context, i) => _OnboardingPage(
-                  data: _pages[i],
-                  entrance: _entrance,
-                  padding: _pagePadding,
-                  gapIconToTitle: _gapIconToTitle,
-                  gapTitleToSubtitle: _gapTitleToSubtitle,
-                  medallionSize: _medallionSize,
-                  iconSize: _iconSize,
-                ),
+                itemBuilder: (context, i) {
+                  if (i >= _pages.length) {
+                    return _NamePage(
+                      padding: _pagePadding,
+                      firstNameController: _firstNameCtrl,
+                      lastNameController: _lastNameCtrl,
+                    );
+                  }
+                  return _OnboardingPage(
+                    data: _pages[i],
+                    entrance: _entrance,
+                    padding: _pagePadding,
+                    gapIconToTitle: _gapIconToTitle,
+                    gapTitleToSubtitle: _gapTitleToSubtitle,
+                    medallionSize: _medallionSize,
+                    iconSize: _iconSize,
+                  );
+                },
               ),
             ),
 
             // Индикатор страниц.
-            _PageIndicator(count: _pages.length, index: _index),
+            _PageIndicator(count: _pageCount, index: _index),
             const SizedBox(height: 28),
 
             // Нижнее действие: «Далее» на 1–2, финальный CTA на 3-й.
@@ -141,7 +168,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _next,
+                  // На карточке имени CTA активен только при непустом имени.
+                  onPressed:
+                      _isLast && _firstNameCtrl.text.trim().isEmpty ? null : _next,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(_ctaMinHeight),
                     shape: RoundedRectangleBorder(
@@ -150,7 +179,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     textStyle: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w600),
                   ),
-                  child: Text(_isLast ? 'Начать первую сессию' : 'Далее'),
+                  child: Text(_isLast ? 'Начать' : 'Далее'),
                 ),
               ),
             ),
@@ -339,4 +368,86 @@ class _OnboardingPageData {
   final IconData icon;
   final String title;
   final String subtitle;
+}
+
+/// Финальная карточка: ввод имени. Имя обязательно (иначе CTA заблокирован),
+/// фамилия — нет. Хранилище не трогает: значения уходят в onFinish родителя.
+class _NamePage extends StatelessWidget {
+  const _NamePage({
+    required this.padding,
+    required this.firstNameController,
+    required this.lastNameController,
+  });
+
+  final EdgeInsets padding;
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Padding(
+      padding: padding,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.emoji_emotions_outlined,
+                size: 56,
+                color: colors.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: 36),
+            Text(
+              'Как тебя зовут?',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Достаточно имени — фамилию можно не указывать.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: colors.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 28),
+            TextField(
+              controller: firstNameController,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Имя',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: lastNameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Фамилия (необязательно)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

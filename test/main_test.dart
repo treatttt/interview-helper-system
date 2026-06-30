@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:interview_helper_system/main.dart' as app;
@@ -6,6 +7,7 @@ import 'package:interview_helper_system/screens/onboarding_screen.dart';
 import 'package:interview_helper_system/services/progress_service.dart';
 import 'package:interview_helper_system/services/reminder_service.dart';
 import 'package:interview_helper_system/services/theme_service.dart';
+import 'package:interview_helper_system/services/user_profile_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -53,22 +55,31 @@ void main() {
     await themeService.init();
     final reminderService = ReminderService();
     await reminderService.init();
+    final userProfile = UserProfileService();
+    await userProfile.init();
 
     await tester.pumpWidget(
       app.InterviewHelperApp(
         progress: progress,
         themeService: themeService,
         reminderService: reminderService,
+        userProfile: userProfile,
       ),
     );
     await tester.pumpAndSettle();
     expect(find.byType(OnboardingScreen), findsOneWidget);
 
+    // Три инфо-карточки, затем финальная карточка ввода имени.
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Начать первую сессию'));
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Тест');
+    await tester.pump();
+    await tester.tap(find.text('Начать'));
     await tester.pumpAndSettle();
 
     expect(find.byType(MainShell), findsOneWidget);
