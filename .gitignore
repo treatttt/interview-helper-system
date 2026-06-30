@@ -36,6 +36,7 @@ migrate_working_dir/
 /.agents/
 skills-lock.json
 feedback_config.json
+wrangler.jsonc
 
 # Symbolication related
 app.*.symbols

@@ -3,14 +3,27 @@ import 'package:flutter/widgets.dart';
 /// Отслеживает имя текущего верхнего маршрута для отчётов обратной связи.
 ///
 /// Подключается только в тестовой сборке (см. `main.dart`). Имя берётся из
-/// `RouteSettings(name:)`, которое экраны проставляют при push. Корневой
-/// маршрут шелла («/») показывается как «Главная»; вкладки внутри шелла
-/// маршрутами не различаются — это ограничение IndexedStack, не баг.
+/// `RouteSettings(name:)`, которое экраны проставляют при push.
+/// Вкладки внутри IndexedStack-шелла не являются маршрутами — они обновляются
+/// через [setTab].
 class FeedbackRouteObserver extends NavigatorObserver {
   String _current = '—';
+  String _tabName = 'Главная';
 
-  /// Имя текущего экрана (или «—», если маршрут анонимный).
-  String get currentRouteName => _current == '/' ? 'Главная' : _current;
+  /// Вызывается из MainShell при смене вкладки, чтобы observer знал,
+  /// на какой вкладке шелла находится пользователь.
+  void updateTab(String name) {
+    _tabName = name;
+  }
+
+  /// Имя текущего экрана. Если навигатор стоит на корневом/безымянном маршруте
+  /// (т.е. пользователь на вкладке шелла), возвращает имя текущей вкладки.
+  String get currentRouteName {
+    if (_current == '/' || _current == '—' || _current == 'Главная') {
+      return _tabName;
+    }
+    return _current;
+  }
 
   void _update(Route<dynamic>? route) {
     _current = route?.settings.name ?? '—';
