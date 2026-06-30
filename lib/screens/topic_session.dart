@@ -153,7 +153,7 @@ Future<bool> _maybeResumeTopic(BuildContext context,
   // Пуш await-ится: лок вызывающего держится до закрытия сессии.
   await Navigator.of(context).push(
     MaterialPageRoute<void>(
-      settings: RouteSettings(name: 'Вопросы: $topicTitle'),
+      settings: const RouteSettings(name: 'Вопросы'),
       builder: (_) => SessionScreen(
         track: args.track,
         grade: args.grade,
@@ -251,7 +251,7 @@ Future<bool> _startFreshTopic(
       if (!context.mounted) return true;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          settings: RouteSettings(name: 'Вопросы: $topicTitle'),
+          settings: const RouteSettings(name: 'Вопросы'),
           builder: (_) => SessionScreen(
             track: track,
             grade: grade,
